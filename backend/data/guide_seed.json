@@ -3,9 +3,10 @@
     "민원 가이드 DB의 원본 데이터입니다. 서버가 시작할 때 이 파일을 읽어 SQLite(data/minwon.db)에 다시 적재합니다.",
     "내용을 고치려면 이 파일만 수정하고 서버를 재시작하면 됩니다. (minwon.db 를 직접 고치지 마세요)",
     "categories: AI Hub '민원 업무 자동화 인공지능 언어 데이터' 대분류 18개. id 는 AI 분류가 돌려주는 main_category 와 글자 하나까지 같아야 합니다.",
-    "※ 미정: 분야별 필수 정보(fields)는 '안전건설', '교통'만 프론트엔드 목업 기준 예시로 들어 있고, 나머지 16개는 아직 없음.",
+    "분야별 필수 정보(fields)의 key·label·check·when 은 팀 기준 파일 data/category_requirements.json(민원 18개 카테고리 공식요건 검수, schema 1.0.0)과 같아야 합니다. 기준 파일이 바뀌면 여기도 같이 고치세요 (tests/test_api.py 가 비교함).",
+    "min_length·pattern·hint·example 은 기준 파일에 없는 값으로, 백엔드가 판정 보조·화면 안내용으로 덧붙인 것입니다.",
     "※ 미정: 분야별 공식 접수 채널(official_channel). 지금은 모두 default_channel(국민신문고)을 씁니다.",
-    "fields[]: key(정보 추출 결과의 키) / label(화면 표시 이름) / required(필수 여부) / min_length(최소 글자 수) / pattern(정규식. 안 맞으면 불충분) / hint(보완 안내 = suggestion) / example(작성 예시)"
+    "fields[]: key(정보 추출 결과의 키) / label(화면 표시 이름) / required(필수 여부) / when(있으면 조건부 필수: 조건에 해당하지 않으면 AI 가 not_applicable 로 표시) / check(충족 판정 기준, AI 추출 프롬프트용) / min_length(최소 글자 수) / pattern(정규식. 안 맞으면 불충분) / hint(보완 안내 = suggestion) / example(작성 예시)"
   ],
   "default_channel": {
     "agency": "국민신문고",
@@ -15,7 +16,45 @@
   "categories": [
     {
       "id": "자동차",
-      "fields": []
+      "fields": [
+        {
+          "key": "issue_type",
+          "label": "자동차 관련 업무·문제 유형",
+          "required": true,
+          "check": "등록, 검사, 정비, 불법 차량 등 무엇에 관한 민원인지 식별 가능",
+          "min_length": 2,
+          "hint": "자동차 등록·검사·정비·불법 차량 등 어떤 업무에 관한 민원인지 적어 주세요.",
+          "example": "자동차 정기검사"
+        },
+        {
+          "key": "vehicle_context",
+          "label": "대상 차량·상황",
+          "required": true,
+          "when": "특정 차량·사건에 관한 민원인 경우",
+          "check": "어떤 차량 또는 차량 관련 상황에서 문제가 발생했는지 이해 가능",
+          "min_length": 2,
+          "hint": "문제가 된 차량이나 상황을 적어 주세요.",
+          "example": "아파트 주차장에 몇 달째 방치된 승용차"
+        },
+        {
+          "key": "issue_details",
+          "label": "구체적인 문제·문의 내용",
+          "required": true,
+          "check": "현재 상황 또는 궁금한 사항이 구체적으로 서술됨",
+          "min_length": 5,
+          "hint": "지금 어떤 상황인지, 무엇이 궁금한지 구체적으로 적어 주세요.",
+          "example": "검사 기간이 지나 과태료가 나오는지 궁금함"
+        },
+        {
+          "key": "request",
+          "label": "요청·문의 목적",
+          "required": true,
+          "check": "확인, 변경, 점검 등 행정기관에 바라는 내용이 식별 가능",
+          "min_length": 2,
+          "hint": "확인·변경·점검 등 원하는 처리를 적어 주세요.",
+          "example": "과태료 부과 기준 안내 요청"
+        }
+      ]
     },
     {
       "id": "안전건설",
@@ -25,6 +64,7 @@
           "key": "facility_or_work",
           "label": "대상 시설·공사",
           "required": true,
+          "check": "도로, 보도, 공사장, 옹벽 등 문제가 되는 대상이 식별 가능",
           "min_length": 2,
           "hint": "어떤 시설(가로등, 도로, 보도블록, 공사 현장 등)에 대한 민원인지 적어 주세요.",
           "example": "아파트 정문 앞 가로등"
@@ -33,6 +73,8 @@
           "key": "location",
           "label": "발생 위치",
           "required": true,
+          "when": "현장 위험·시설 문제를 신고하는 경우",
+          "check": "현장 확인이 가능하도록 위치가 구체적으로 기재됨",
           "pattern": "\\d|\\S(아파트|빌딩|타워|학교|공원|마트|병원|센터|시장|사거리|교차로|정문|후문|시청|구청)",
           "hint": "현장을 찾을 수 있도록 도로명 주소나 주변 건물명을 적어 주세요.",
           "example": "OO아파트 정문 앞"
@@ -41,6 +83,7 @@
           "key": "risk_status",
           "label": "위험·파손 상황",
           "required": true,
+          "check": "무엇이 어떻게 위험하거나 파손되었는지 설명됨",
           "min_length": 5,
           "hint": "어떤 위험이나 파손이 있는지, 언제부터인지 적어 주세요.",
           "example": "어제부터 불이 안 켜져 밤에 어둡고 위험함"
@@ -49,6 +92,7 @@
           "key": "request",
           "label": "요청 조치",
           "required": true,
+          "check": "점검, 보수, 안전조치 등 원하는 처리가 구분됨",
           "min_length": 2,
           "hint": "점검·수리 등 원하는 조치를 적어 주세요.",
           "example": "수리 요청"
@@ -63,6 +107,7 @@
           "key": "traffic_target",
           "label": "교통 관련 대상·유형",
           "required": true,
+          "check": "신호기, 도로, 교차로, 버스 노선 등 대상과 문제 유형이 식별 가능",
           "min_length": 2,
           "hint": "어떤 교통 문제(불법 주정차, 신호등, 버스 등)인지 적어 주세요.",
           "example": "불법 주정차 차량"
@@ -71,6 +116,8 @@
           "key": "location_or_route",
           "label": "발생 위치·노선",
           "required": true,
+          "when": "특정 장소·노선·운행을 대상으로 신고하는 경우",
+          "check": "교차로·정류장·노선 등 관할이나 현장 확인에 필요한 대상이 식별 가능",
           "pattern": "\\d|\\S(아파트|빌딩|타워|학교|공원|마트|병원|센터|시장|사거리|교차로|정문|후문|시청|구청)",
           "hint": "상가 이름이나 도로명 주소, 버스라면 노선 번호를 적어 주세요.",
           "example": "OO마트 앞 도로 / 101번 버스"
@@ -79,6 +126,7 @@
           "key": "issue_details",
           "label": "교통 문제의 구체적 상황",
           "required": true,
+          "check": "어떤 장애, 고장, 불편 또는 위험이 있는지 설명됨",
           "min_length": 8,
           "hint": "어떤 불편이 있는지, 주로 언제 발생하는지 적어 주세요.",
           "example": "평일 저녁마다 차량이 세워져 있어 통행이 어려움"
@@ -87,26 +135,645 @@
           "key": "request",
           "label": "요청 사항",
           "required": true,
+          "check": "개선, 단속, 점검, 안내 등 원하는 조치가 드러남",
           "min_length": 2,
           "hint": "단속·계도 등 원하는 조치를 적어 주세요.",
           "example": "주기적인 단속 요청"
         }
       ]
     },
-    { "id": "건축허가", "fields": [] },
-    { "id": "환경미화", "fields": [] },
-    { "id": "공통", "fields": [] },
-    { "id": "산림", "fields": [] },
-    { "id": "행정", "fields": [] },
-    { "id": "복지", "fields": [] },
-    { "id": "세무", "fields": [] },
-    { "id": "문화_체육_관광", "name": "문화·체육·관광", "fields": [] },
-    { "id": "보건소", "fields": [] },
-    { "id": "위생", "fields": [] },
-    { "id": "상하수도", "fields": [] },
-    { "id": "경제", "fields": [] },
-    { "id": "농업_축산", "name": "농업·축산", "fields": [] },
-    { "id": "토지", "fields": [] },
-    { "id": "정보통신", "fields": [] }
+    {
+      "id": "건축허가",
+      "fields": [
+        {
+          "key": "building_action",
+          "label": "건축 관련 행위·업무",
+          "required": true,
+          "check": "신축, 증축, 용도변경, 허가 문의 등 무엇을 하려는지 구분 가능",
+          "min_length": 2,
+          "hint": "신축·증축·용도변경·허가 문의 등 무엇을 하려는지 적어 주세요.",
+          "example": "단독주택 증축"
+        },
+        {
+          "key": "target_building_or_land",
+          "label": "대상 건축물·토지",
+          "required": true,
+          "when": "특정 건축물·토지에 대한 허가 가능 여부나 처리를 문의하는 경우",
+          "check": "대상 건축물 또는 토지에 관한 기본 상황이 식별 가능",
+          "min_length": 2,
+          "hint": "대상 건축물이나 토지의 기본 상황(용도·층수·면적 등)을 적어 주세요.",
+          "example": "2층 단독주택(대지 200㎡)"
+        },
+        {
+          "key": "region",
+          "label": "대상 지역",
+          "required": true,
+          "when": "지역별 허가 기준·관할 판단을 요청하는 경우",
+          "check": "적용 관할과 지역 규정을 가릴 수 있을 정도로 지역이 식별 가능",
+          "min_length": 2,
+          "hint": "관할을 알 수 있도록 시·군·구나 동 이름을 적어 주세요.",
+          "example": "OO시 OO구 OO동"
+        },
+        {
+          "key": "question_or_request",
+          "label": "구체적인 문의·요청 사항",
+          "required": true,
+          "check": "어떤 절차·요건·처리를 확인하려는지 명확함",
+          "min_length": 5,
+          "hint": "어떤 절차·요건·처리를 확인하고 싶은지 적어 주세요.",
+          "example": "증축할 때 허가와 신고 중 무엇이 필요한지 문의"
+        }
+      ]
+    },
+    {
+      "id": "환경미화",
+      "fields": [
+        {
+          "key": "environment_issue",
+          "label": "환경미화 문제 유형",
+          "required": true,
+          "check": "쓰레기, 청소, 수거 지연, 악취 등 불편의 종류가 식별 가능",
+          "min_length": 2,
+          "hint": "쓰레기 무단투기·수거 지연·악취 등 어떤 불편인지 적어 주세요.",
+          "example": "생활쓰레기 무단투기"
+        },
+        {
+          "key": "location",
+          "label": "발생 장소",
+          "required": true,
+          "when": "현장 청소·수거·단속 등 조치를 요청하는 경우",
+          "check": "현장 확인이 가능하도록 투기·적치·오염 위치가 특정됨",
+          "pattern": "\\d|\\S(아파트|빌딩|타워|학교|공원|마트|병원|센터|시장|사거리|교차로|정문|후문|시청|구청)",
+          "hint": "현장을 찾을 수 있도록 도로명 주소나 주변 건물명을 적어 주세요.",
+          "example": "OO빌라 옆 전봇대 아래"
+        },
+        {
+          "key": "issue_details",
+          "label": "발생 상황",
+          "required": true,
+          "check": "어떤 물질·상태 때문에 어떤 문제가 생겼는지 설명됨",
+          "min_length": 5,
+          "hint": "무엇이 어떤 상태인지, 언제부터인지 적어 주세요.",
+          "example": "일주일째 쓰레기봉투가 쌓여 악취가 남"
+        },
+        {
+          "key": "request",
+          "label": "요청 조치",
+          "required": true,
+          "check": "수거, 청소, 확인, 단속 등 바라는 처리가 식별 가능",
+          "min_length": 2,
+          "hint": "수거·청소·단속 등 원하는 처리를 적어 주세요.",
+          "example": "수거 및 무단투기 단속 요청"
+        }
+      ]
+    },
+    {
+      "id": "공통",
+      "fields": [
+        {
+          "key": "target",
+          "label": "민원·건의 대상",
+          "required": true,
+          "check": "어떤 업무, 서비스, 시설 또는 정책을 대상으로 하는지 식별 가능",
+          "min_length": 2,
+          "hint": "어떤 업무·서비스·시설·정책에 대한 민원인지 적어 주세요.",
+          "example": "구청 민원실 운영 시간"
+        },
+        {
+          "key": "issue_details",
+          "label": "문제·건의 내용",
+          "required": true,
+          "check": "문제나 개선 제안의 핵심이 구체적으로 표현됨",
+          "min_length": 5,
+          "hint": "문제점이나 개선 제안의 핵심을 구체적으로 적어 주세요.",
+          "example": "평일 낮에만 운영해 직장인이 이용하기 어려움"
+        },
+        {
+          "key": "request",
+          "label": "요청 사항",
+          "required": true,
+          "check": "행정기관에 바라는 답변 또는 조치가 식별 가능",
+          "min_length": 2,
+          "hint": "행정기관에 바라는 답변이나 조치를 적어 주세요.",
+          "example": "주 1회 야간 운영 검토 요청"
+        }
+      ]
+    },
+    {
+      "id": "산림",
+      "fields": [
+        {
+          "key": "forest_target",
+          "label": "산림·수목 관련 대상",
+          "required": true,
+          "check": "가로수, 위험 수목, 산림시설, 산림 훼손 등 대상이 식별 가능",
+          "min_length": 2,
+          "hint": "가로수·위험 수목·산림시설 등 무엇에 관한 민원인지 적어 주세요.",
+          "example": "인도 옆 가로수"
+        },
+        {
+          "key": "location",
+          "label": "발생 위치",
+          "required": true,
+          "when": "현장 정비·훼손·위험 신고인 경우",
+          "check": "현장 확인이 가능하도록 산림·수목·시설 위치가 특정됨",
+          "pattern": "\\d|\\S(아파트|빌딩|타워|학교|공원|마트|병원|센터|시장|사거리|교차로|정문|후문|시청|구청)",
+          "hint": "현장을 찾을 수 있도록 도로명 주소나 주변 건물명을 적어 주세요.",
+          "example": "OO초등학교 후문 앞 인도"
+        },
+        {
+          "key": "issue_status",
+          "label": "문제·위험 상태",
+          "required": true,
+          "check": "기울어짐, 고사, 훼손 등 현황이 구체적으로 설명됨",
+          "min_length": 5,
+          "hint": "기울어짐·고사·훼손 등 지금 상태를 구체적으로 적어 주세요.",
+          "example": "태풍 이후 나무가 인도 쪽으로 기울어 있음"
+        },
+        {
+          "key": "request",
+          "label": "요청 조치",
+          "required": true,
+          "check": "점검, 정비, 보호, 안내 등 바라는 처리가 식별 가능",
+          "min_length": 2,
+          "hint": "점검·정비·보호 등 원하는 처리를 적어 주세요.",
+          "example": "안전 점검 및 가지치기 요청"
+        }
+      ]
+    },
+    {
+      "id": "행정",
+      "fields": [
+        {
+          "key": "administrative_service",
+          "label": "관련 행정 업무·절차",
+          "required": true,
+          "check": "처리 지연, 서류 발급, 안내, 행정서비스 이용 등 대상 업무가 식별 가능",
+          "min_length": 2,
+          "hint": "어떤 행정 업무·절차(서류 발급, 신청 처리 등)에 관한 민원인지 적어 주세요.",
+          "example": "전입신고 처리"
+        },
+        {
+          "key": "issue_details",
+          "label": "민원 제기 사유·현재 상황",
+          "required": true,
+          "check": "무슨 문제가 있으며 처리 진행 상황이 어떠한지 설명됨",
+          "min_length": 5,
+          "hint": "무슨 문제가 있는지, 지금 어디까지 진행됐는지 적어 주세요.",
+          "example": "신청한 지 2주가 지났는데 처리 결과 안내가 없음"
+        },
+        {
+          "key": "prior_application",
+          "label": "기존 신청·처리 내역",
+          "required": true,
+          "when": "기존 민원의 처리 지연·오류·재처리를 문의하는 경우",
+          "check": "신청했던 업무와 대략적인 접수 시점·처리 상태가 드러남",
+          "min_length": 4,
+          "hint": "언제 무엇을 신청했고 지금 처리 상태가 어떤지 적어 주세요.",
+          "example": "11월 3일 온라인 신청, 현재 접수 상태"
+        },
+        {
+          "key": "request",
+          "label": "요청 사항",
+          "required": true,
+          "check": "처리 상황 확인, 개선, 설명 등 바라는 행정 조치가 식별 가능",
+          "min_length": 2,
+          "hint": "처리 상황 확인·설명 등 원하는 조치를 적어 주세요.",
+          "example": "처리 진행 상황 확인 요청"
+        }
+      ]
+    },
+    {
+      "id": "복지",
+      "fields": [
+        {
+          "key": "welfare_service",
+          "label": "복지 제도·지원 분야",
+          "required": true,
+          "check": "복지급여, 돌봄, 지원사업 등 관심 서비스가 식별 가능",
+          "min_length": 2,
+          "hint": "복지급여·돌봄·지원사업 등 관심 있는 복지 서비스를 적어 주세요.",
+          "example": "노인 돌봄 서비스"
+        },
+        {
+          "key": "issue_or_goal",
+          "label": "문의·신청 목적",
+          "required": true,
+          "check": "지원 대상, 신청 절차, 이용 문제 등 무엇을 알고 싶은지 구분 가능",
+          "min_length": 4,
+          "hint": "지원 대상인지, 신청 방법인지 등 무엇을 알고 싶은지 적어 주세요.",
+          "example": "신청 절차와 필요 서류가 궁금함"
+        },
+        {
+          "key": "eligibility_context",
+          "label": "자격 판단에 필요한 일반 상황",
+          "required": true,
+          "when": "개별 지원 자격에 대한 판단을 요청하는 경우",
+          "check": "구체적 제도에 관한 안내에 꼭 필요한 조건이 원문에 포함됨; 민감 개인정보를 강제하지 않음",
+          "min_length": 2,
+          "hint": "자격 판단에 필요한 일반적인 상황(연령대·가구 형태 등)만 적어 주세요. 주민등록번호·병명 같은 민감한 정보는 적지 않아도 됩니다.",
+          "example": "70대 1인 가구"
+        },
+        {
+          "key": "request",
+          "label": "요청 사항",
+          "required": true,
+          "check": "신청 방법, 대상 여부, 진행 안내 등 원하는 답변이 명확함",
+          "min_length": 2,
+          "hint": "신청 방법·대상 여부 안내 등 원하는 답변을 적어 주세요.",
+          "example": "대상 여부와 신청 방법 안내 요청"
+        }
+      ]
+    },
+    {
+      "id": "세무",
+      "fields": [
+        {
+          "key": "tax_type",
+          "label": "세금·세무 업무 종류",
+          "required": true,
+          "check": "재산세, 자동차세 등 관련 세목이나 지방세 업무를 식별 가능",
+          "min_length": 2,
+          "hint": "재산세·자동차세 등 어떤 세금에 관한 문의인지 적어 주세요.",
+          "example": "재산세"
+        },
+        {
+          "key": "tax_period",
+          "label": "과세·납부 대상 시기",
+          "required": true,
+          "when": "특정 고지·과세 내역·납부 건을 문의하는 경우",
+          "check": "문제가 된 연도·납부기한·과세 기간이 구분 가능",
+          "min_length": 2,
+          "hint": "문제가 된 연도·납부기한·과세 기간을 적어 주세요.",
+          "example": "2026년 7월분 고지서"
+        },
+        {
+          "key": "issue_details",
+          "label": "구체적인 세무 문의·문제",
+          "required": true,
+          "check": "부과, 납부, 감면, 환급 등 쟁점이 드러남",
+          "min_length": 5,
+          "hint": "부과·납부·감면·환급 중 어떤 점이 문제인지 적어 주세요.",
+          "example": "작년보다 세액이 크게 올라 이유가 궁금함"
+        },
+        {
+          "key": "request",
+          "label": "요청 사항",
+          "required": true,
+          "check": "계산 근거 설명, 정정, 납부 안내 등 원하는 처리가 식별 가능",
+          "min_length": 2,
+          "hint": "계산 근거 설명·정정·납부 안내 등 원하는 처리를 적어 주세요.",
+          "example": "세액 산정 근거 설명 요청"
+        }
+      ]
+    },
+    {
+      "id": "문화_체육_관광",
+      "name": "문화·체육·관광",
+      "fields": [
+        {
+          "key": "facility_or_program",
+          "label": "시설·행사·관광 자원",
+          "required": true,
+          "check": "문화·체육시설, 행사 또는 관광 대상이 식별 가능",
+          "min_length": 2,
+          "hint": "어떤 문화·체육시설, 행사, 관광지에 관한 민원인지 적어 주세요.",
+          "example": "OO구민체육센터 수영장"
+        },
+        {
+          "key": "issue_details",
+          "label": "이용 불편·문의 내용",
+          "required": true,
+          "check": "문제 발생 현황이나 알고 싶은 점이 구체적으로 표현됨",
+          "min_length": 5,
+          "hint": "어떤 불편이 있었는지, 무엇이 궁금한지 구체적으로 적어 주세요.",
+          "example": "예약한 강습이 사전 안내 없이 취소됨"
+        },
+        {
+          "key": "location_or_schedule",
+          "label": "이용 장소·일시",
+          "required": true,
+          "when": "특정 이용 사건·예약·시설 문제를 신고하는 경우",
+          "check": "어느 시설의 언제 발생한 문제인지 확인 가능",
+          "min_length": 4,
+          "hint": "어느 시설에서 언제 생긴 일인지 적어 주세요.",
+          "example": "11월 15일 오전 10시 강습"
+        },
+        {
+          "key": "request",
+          "label": "요청 사항",
+          "required": true,
+          "check": "시설 개선, 환불 절차 문의, 운영 안내 등 원하는 조치가 식별 가능",
+          "min_length": 2,
+          "hint": "시설 개선·환불 절차 안내 등 원하는 조치를 적어 주세요.",
+          "example": "환불 절차 안내 요청"
+        }
+      ]
+    },
+    {
+      "id": "보건소",
+      "fields": [
+        {
+          "key": "health_service",
+          "label": "보건소 서비스·업무",
+          "required": true,
+          "check": "접종, 검진, 보건증명 등 문의 대상 서비스를 식별 가능",
+          "min_length": 2,
+          "hint": "예방접종·건강검진·보건증 발급 등 어떤 서비스에 관한 문의인지 적어 주세요.",
+          "example": "독감 예방접종"
+        },
+        {
+          "key": "issue_or_question",
+          "label": "구체적인 문의·문제",
+          "required": true,
+          "check": "서비스 이용 목적이나 불편·궁금한 내용이 드러남",
+          "min_length": 4,
+          "hint": "이용 목적이나 불편한 점, 궁금한 점을 적어 주세요.",
+          "example": "무료 접종 기간과 준비물이 궁금함"
+        },
+        {
+          "key": "target_context",
+          "label": "서비스 대상 구분",
+          "required": true,
+          "when": "서비스 대상 여부 또는 지원 자격을 문의하는 경우",
+          "check": "안내에 필요한 대상 연령대·이용 조건이 확인 가능; 민감 건강정보를 강제하지 않음",
+          "min_length": 2,
+          "hint": "대상 여부 판단에 필요한 연령대·이용 조건만 적어 주세요. 병명 같은 민감한 건강정보는 적지 않아도 됩니다.",
+          "example": "만 65세 이상"
+        },
+        {
+          "key": "region",
+          "label": "이용 희망 지역",
+          "required": true,
+          "when": "특정 지역의 이용 기관·예약을 찾는 경우",
+          "check": "관할 보건소나 이용 가능한 기관을 찾을 수 있는 지역이 식별 가능",
+          "min_length": 2,
+          "hint": "이용하려는 지역(시·군·구)을 적어 주세요.",
+          "example": "OO구"
+        }
+      ]
+    },
+    {
+      "id": "위생",
+      "fields": [
+        {
+          "key": "hygiene_target",
+          "label": "위생 관련 업소·제품·시설",
+          "required": true,
+          "check": "어느 업소, 시설 또는 제품의 문제인지 식별 가능",
+          "min_length": 2,
+          "hint": "어느 업소·시설·제품의 위생 문제인지 적어 주세요.",
+          "example": "음식점"
+        },
+        {
+          "key": "location_or_product",
+          "label": "업소 위치·제품 식별 정보",
+          "required": true,
+          "when": "특정 업소·제품의 위생 문제를 신고하는 경우",
+          "check": "현장 또는 제품을 확인할 수 있는 위치·업소명·제품명 등 정보가 있음",
+          "min_length": 2,
+          "hint": "확인할 수 있도록 업소명·위치나 제품명을 적어 주세요.",
+          "example": "OO역 2번 출구 앞 OO식당"
+        },
+        {
+          "key": "violation_details",
+          "label": "위생 문제의 구체적인 상황",
+          "required": true,
+          "check": "어떤 위생 불량이나 부정·불량 의심행위가 있었는지 설명됨",
+          "min_length": 5,
+          "hint": "어떤 위생 불량이나 의심 행위가 있었는지 구체적으로 적어 주세요.",
+          "example": "음식에서 이물질이 나왔고 주방이 비위생적임"
+        },
+        {
+          "key": "request",
+          "label": "요청 사항",
+          "required": true,
+          "check": "확인·점검·신고 접수 등 원하는 처리가 식별 가능",
+          "min_length": 2,
+          "hint": "위생 점검·신고 접수 등 원하는 처리를 적어 주세요.",
+          "example": "위생 점검 요청"
+        }
+      ]
+    },
+    {
+      "id": "상하수도",
+      "fields": [
+        {
+          "key": "water_issue",
+          "label": "상수도·하수도 문제 유형",
+          "required": true,
+          "check": "누수, 단수, 수압 저하, 하수 역류, 요금 등 업무 유형이 식별 가능",
+          "min_length": 2,
+          "hint": "누수·단수·수압 저하·하수 역류·요금 등 어떤 문제인지 적어 주세요.",
+          "example": "도로 누수"
+        },
+        {
+          "key": "location",
+          "label": "발생 위치",
+          "required": true,
+          "when": "누수·단수·하수 역류 등 현장 신고인 경우",
+          "check": "현장 확인이 가능하도록 문제가 발생한 시설·지역이 특정됨",
+          "pattern": "\\d|\\S(아파트|빌딩|타워|학교|공원|마트|병원|센터|시장|사거리|교차로|정문|후문|시청|구청)",
+          "hint": "현장을 찾을 수 있도록 도로명 주소나 주변 건물명을 적어 주세요.",
+          "example": "OO로 12 앞 도로"
+        },
+        {
+          "key": "issue_status",
+          "label": "현재 발생 상태·영향",
+          "required": true,
+          "check": "어떤 현상이 발생하고 있으며 지속·피해 상황이 어떠한지 설명됨",
+          "min_length": 5,
+          "hint": "어떤 현상이 언제부터 계속되는지, 피해가 있는지 적어 주세요.",
+          "example": "어제 저녁부터 도로 틈에서 물이 계속 새어 나옴"
+        },
+        {
+          "key": "request",
+          "label": "요청 사항",
+          "required": true,
+          "check": "현장 점검, 수리, 급수 확인, 요금 설명 등 원하는 조치가 드러남",
+          "min_length": 2,
+          "hint": "현장 점검·수리·요금 설명 등 원하는 조치를 적어 주세요.",
+          "example": "현장 점검 및 수리 요청"
+        }
+      ]
+    },
+    {
+      "id": "경제",
+      "fields": [
+        {
+          "key": "economic_target",
+          "label": "경제 관련 사업·제도·거래",
+          "required": true,
+          "check": "지원사업, 시장, 상거래, 소상공인 정책 등 민원 대상이 식별 가능",
+          "min_length": 2,
+          "hint": "지원사업·전통시장·상거래·소상공인 정책 등 무엇에 관한 민원인지 적어 주세요.",
+          "example": "소상공인 경영안정자금"
+        },
+        {
+          "key": "issue_details",
+          "label": "경제 분야 문의·문제 상황",
+          "required": true,
+          "check": "사업·제도에 대해 어떤 쟁점이나 불편이 있는지 구체적으로 설명됨",
+          "min_length": 5,
+          "hint": "어떤 점이 문제인지, 무엇이 궁금한지 구체적으로 적어 주세요.",
+          "example": "신청 자격 중 매출 기준을 모르겠음"
+        },
+        {
+          "key": "business_context",
+          "label": "적용 사업의 조건",
+          "required": true,
+          "when": "특정 지역·업종 자격에 따른 지원사업 판단을 요청하는 경우",
+          "check": "지역·업종·사업 형태 등 해당 지원 조건에 필요한 사항이 확인 가능",
+          "min_length": 2,
+          "hint": "지원 조건 판단에 필요한 지역·업종·사업 형태를 적어 주세요.",
+          "example": "OO구 소재 음식점(개인사업자)"
+        },
+        {
+          "key": "request",
+          "label": "요청 사항",
+          "required": true,
+          "check": "신청 절차, 제도 설명, 조치 요청 등 원하는 답변이 식별 가능",
+          "min_length": 2,
+          "hint": "신청 절차·제도 설명 등 원하는 답변을 적어 주세요.",
+          "example": "신청 가능 여부와 절차 안내 요청"
+        }
+      ]
+    },
+    {
+      "id": "농업_축산",
+      "name": "농업·축산",
+      "fields": [
+        {
+          "key": "agri_target",
+          "label": "농업·축산 관련 대상",
+          "required": true,
+          "check": "작물, 가축, 농지, 축사, 지원사업 등 대상이 식별 가능",
+          "min_length": 2,
+          "hint": "작물·가축·농지·축사·지원사업 등 무엇에 관한 민원인지 적어 주세요.",
+          "example": "벼 재배 논"
+        },
+        {
+          "key": "issue_type",
+          "label": "문의·피해 유형",
+          "required": true,
+          "check": "재난피해, 질병, 시설, 지원 등 어떤 사안인지 드러남",
+          "min_length": 2,
+          "hint": "재난피해·질병·시설·지원 중 어떤 사안인지 적어 주세요.",
+          "example": "집중호우 침수 피해"
+        },
+        {
+          "key": "damage_context",
+          "label": "피해 지역·규모",
+          "required": true,
+          "when": "피해 신고·복구 지원을 요청하는 경우",
+          "check": "피해 위치와 작물·가축 피해 규모 또는 범위가 확인 가능",
+          "min_length": 4,
+          "hint": "피해 위치와 피해 규모(면적·마릿수 등)를 적어 주세요.",
+          "example": "OO리 논 약 3,000㎡ 침수"
+        },
+        {
+          "key": "issue_details",
+          "label": "구체적인 상황",
+          "required": true,
+          "check": "문제의 발생 경위나 현재 상황이 구체적으로 설명됨",
+          "min_length": 5,
+          "hint": "언제 어떻게 생긴 일인지, 지금 상황이 어떤지 적어 주세요.",
+          "example": "지난주 폭우로 논이 잠겨 벼가 쓰러짐"
+        },
+        {
+          "key": "request",
+          "label": "요청 사항",
+          "required": true,
+          "check": "점검, 복구, 지원, 제도 안내 등 바라는 처리가 식별 가능",
+          "min_length": 2,
+          "hint": "점검·복구·지원·제도 안내 등 원하는 처리를 적어 주세요.",
+          "example": "피해 조사 및 복구 지원 요청"
+        }
+      ]
+    },
+    {
+      "id": "토지",
+      "fields": [
+        {
+          "key": "land_issue",
+          "label": "토지 관련 업무·문제 유형",
+          "required": true,
+          "check": "경계, 지적, 측량, 토지이용 등 무엇에 관한 민원인지 식별 가능",
+          "min_length": 2,
+          "hint": "경계·지적·측량·토지이용 등 어떤 업무에 관한 민원인지 적어 주세요.",
+          "example": "토지 경계 확인"
+        },
+        {
+          "key": "land_target",
+          "label": "대상 토지 식별 정보",
+          "required": true,
+          "when": "특정 토지에 대한 확인·측량·처리를 요청하는 경우",
+          "check": "필지·지번 또는 위치 등 대상 토지를 식별 가능한 정보가 있음",
+          "pattern": "\\d|\\S(아파트|빌딩|타워|학교|공원|마트|병원|센터|시장|사거리|교차로|정문|후문|시청|구청)",
+          "hint": "대상 토지를 찾을 수 있도록 지번이나 위치를 적어 주세요.",
+          "example": "OO동 123-4번지"
+        },
+        {
+          "key": "issue_details",
+          "label": "현황·문의 내용",
+          "required": true,
+          "check": "토지 관련 문제나 확인하려는 절차가 구체적으로 설명됨",
+          "min_length": 5,
+          "hint": "토지와 관련된 문제나 확인하려는 절차를 구체적으로 적어 주세요.",
+          "example": "이웃 담장이 우리 땅을 넘어온 것 같음"
+        },
+        {
+          "key": "request",
+          "label": "요청 사항",
+          "required": true,
+          "check": "경계 확인, 측량, 정보 정정 등 원하는 조치가 식별 가능",
+          "min_length": 2,
+          "hint": "경계 확인·측량·정보 정정 등 원하는 조치를 적어 주세요.",
+          "example": "경계 복원 측량 절차 안내 요청"
+        }
+      ]
+    },
+    {
+      "id": "정보통신",
+      "fields": [
+        {
+          "key": "service_or_system",
+          "label": "대상 정보통신 서비스·시스템",
+          "required": true,
+          "check": "공공 앱·웹사이트·통신설비 등 문제가 되는 서비스가 식별 가능",
+          "min_length": 2,
+          "hint": "어떤 공공 앱·웹사이트·통신설비에 관한 민원인지 적어 주세요.",
+          "example": "OO구청 홈페이지"
+        },
+        {
+          "key": "affected_function",
+          "label": "문제 발생 기능·구간",
+          "required": true,
+          "when": "서비스 오류·장애를 신고하는 경우",
+          "check": "어느 화면·기능·설비에서 문제가 발생하는지 구체적으로 설명됨",
+          "min_length": 2,
+          "hint": "어느 화면·기능·설비에서 문제가 생기는지 적어 주세요.",
+          "example": "증명서 발급 화면의 결제 단계"
+        },
+        {
+          "key": "issue_details",
+          "label": "오류·문의의 구체적인 내용",
+          "required": true,
+          "check": "오류 증상, 표시 문구 또는 문의 사안이 드러남",
+          "min_length": 5,
+          "hint": "오류 증상이나 화면에 뜬 문구, 문의 내용을 적어 주세요.",
+          "example": "결제 버튼을 누르면 '일시적 오류' 문구가 뜸"
+        },
+        {
+          "key": "request",
+          "label": "요청 사항",
+          "required": true,
+          "check": "수정, 점검, 사용 방법 설명 등 원하는 조치가 식별 가능",
+          "min_length": 2,
+          "hint": "수정·점검·사용 방법 안내 등 원하는 조치를 적어 주세요.",
+          "example": "오류 수정 요청"
+        }
+      ]
+    }
   ]
 }

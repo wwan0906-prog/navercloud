@@ -5,7 +5,13 @@
     sufficient      충족
     insufficient    불충분 (너무 짧음 / 모호함 / 형식 불일치)
     missing         누락 (값 없음)
-    not_applicable  해당 없음 (AI 가 이 민원에는 해당 없다고 표시한 항목)
+    not_applicable  해당 없음 (조건부 필수 항목인데 이 민원은 조건에 해당하지 않음)
+
+조건부 필수(when) 처리 — 기준 파일 rules.field_policy:
+    "when 이 있는 항목은 조건에 해당할 때만 필수"
+    조건 해당 여부는 문장 이해가 필요해서 AI 추출 단계가 판단하고 not_applicable 목록으로 알려 줍니다.
+    - when 이 있는 항목: AI 가 not_applicable 로 표시하면 → not_applicable
+    - when 이 없는 항목: 항상 필수라서 AI 가 not_applicable 로 표시해도 무시하고 값으로 판정
 """
 from __future__ import annotations
 
@@ -19,11 +25,17 @@ VAGUE_VALUES = {
 }
 
 
+def is_conditional(field: dict) -> bool:
+    """조건부 필수 항목(when 이 있음)인지"""
+    return bool((field.get('when') or '').strip())
+
+
 def check_field(field: dict, value, not_applicable: bool = False) -> dict:
-    """필드 하나를 판정해서 프론트엔드 field_checks 항목 형식으로 돌려줍니다."""
+    """필드 하나를 판정해서 프론트엔드 field_checks 항목 형식으로 돌려줍니다.
+    not_applicable=True 는 조건부 필수 항목에만 적용됩니다."""
     text = '' if value is None else str(value).strip()
 
-    if not_applicable:
+    if not_applicable and is_conditional(field):
         status = 'not_applicable'
     elif not text:
         status = 'missing'
@@ -45,11 +57,13 @@ def check_field(field: dict, value, not_applicable: bool = False) -> dict:
         'suggestion': field.get('hint') if needs_fix else None,
         # 화면에는 안 쓰지만 안내문 조합에 씀
         'required': bool(field.get('required', True)),
+        'when': field.get('when'),
         'example': field.get('example') if needs_fix else None,
     }
 
 
 def check_fields(fields: list[dict], extracted: dict | None, not_applicable=()) -> list[dict]:
+    """not_applicable: AI 가 '조건에 해당하지 않음'으로 표시한 key 목록."""
     extracted = extracted or {}
     na = set(not_applicable or ())
     return [check_field(f, extracted.get(f['key']), f['key'] in na) for f in fields]
