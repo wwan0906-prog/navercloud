@@ -60,7 +60,8 @@ SUBTYPE_DESC = {
 def _api_key() -> str:
     key = (os.environ.get('CLOVASTUDIO_API_KEY') or os.environ.get('NCP_CLOVASTUDIO_API_KEY') or '').strip()
     if not key:
-        raise RuntimeError('CLOVASTUDIO_API_KEY 가 .env 에 없습니다.')
+        from .ai_client import AINotReady
+        raise AINotReady('HCX 연결 전: CLOVASTUDIO_API_KEY 가 .env 에 없습니다. AI_MODE=mock 으로 테스트하세요.')
     return key if key.startswith('Bearer ') else f'Bearer {key}'
 
 
