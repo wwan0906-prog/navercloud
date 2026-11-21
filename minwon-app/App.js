@@ -7,9 +7,13 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 
-// 백엔드 서버 연동 시 USE_MOCK을 false로 바꾸고 실제 서버 주소를 입력하세요.
-const USE_MOCK = true;
-const API_URL = 'http://서버_공인_IP:8000/api/analyze';
+import { getMockResponse } from './mock';
+
+// 서버 주소는 minwon-app/.env.local 의 EXPO_PUBLIC_API_BASE_URL 에서 읽습니다 (.env.example 참고).
+// 주소가 없거나 EXPO_PUBLIC_USE_MOCK=true 이면 서버 없이 목업 응답(mock.js)을 씁니다.
+const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || '').replace(/\/+$/, '');
+const USE_MOCK = !API_BASE_URL || process.env.EXPO_PUBLIC_USE_MOCK === 'true';
+const API_URL = `${API_BASE_URL}/api/analyze`;
 
 // 한 번에 첨부할 수 있는 문서 사진 수
 const MAX_IMAGES = 5;
@@ -22,76 +26,6 @@ const STATUS_META = {
   not_applicable: { label: '해당 없음', color: '#6B7280', bg: '#F3F4F6' },
 };
 const STATUS_ORDER = { missing: 0, insufficient: 1, sufficient: 2, not_applicable: 3 };
-
-// 목업 응답. 백엔드 응답 형식(약속안):
-// {
-//   main_category: string,              // 18개 대분류 중 하나 (세부 유형 없음)
-//   field_checks: [{ key, label, status, evidence, suggestion }],
-//   guide_message: string,
-//   official_channel: { agency, url, phone },
-// }
-// 접수 채널 정보는 화면 확인용 예시이며, 실제 값은 백엔드 DB의 공식 출처를 따릅니다.
-const MOCK_CHANNEL = {
-  agency: '안전신문고',
-  url: 'https://www.safetyreport.go.kr',
-  phone: '110',
-};
-
-const MOCK_STREETLIGHT = {
-  main_category: '안전건설',
-  field_checks: [
-    {
-      key: 'facility_or_work', label: '대상 시설·공사', status: 'sufficient',
-      evidence: '골목 가로등', suggestion: null,
-    },
-    {
-      key: 'location', label: '발생 위치', status: 'insufficient',
-      evidence: '집 앞 골목',
-      suggestion: '현장을 찾을 수 있도록 도로명 주소나 주변 건물명을 적어 주세요.',
-    },
-    {
-      key: 'risk_status', label: '위험·파손 상황', status: 'sufficient',
-      evidence: '어제부터 안 켜져서 밤에 너무 위험해요', suggestion: null,
-    },
-    {
-      key: 'request', label: '요청 조치', status: 'missing', evidence: null,
-      suggestion: '점검·수리 등 원하는 조치를 적어 주세요.',
-    },
-  ],
-  guide_message:
-    '보수팀이 현장을 바로 찾을 수 있도록 고장 난 가로등 위치(예: OO아파트 정문 앞)와 원하는 조치(예: 수리 요청)를 추가해 주세요.',
-  official_channel: MOCK_CHANNEL,
-};
-
-const MOCK_PARKING = {
-  main_category: '교통',
-  field_checks: [
-    {
-      key: 'traffic_target', label: '교통 관련 대상·유형', status: 'sufficient',
-      evidence: '불법 주정차 차량', suggestion: null,
-    },
-    {
-      key: 'location_or_route', label: '발생 위치·노선', status: 'insufficient',
-      evidence: '상가 앞',
-      suggestion: '상가 이름이나 도로명 주소를 적어 주세요.',
-    },
-    {
-      key: 'issue_details', label: '교통 문제의 구체적 상황', status: 'sufficient',
-      evidence: '계속 세워져 있어 통행이 어렵습니다', suggestion: null,
-    },
-    {
-      key: 'request', label: '요청 사항', status: 'missing', evidence: null,
-      suggestion: '단속·계도 등 원하는 조치를 적어 주세요.',
-    },
-  ],
-  guide_message:
-    '단속반이 현장을 찾을 수 있도록 정확한 위치와 주로 발생하는 시간대, 원하는 조치를 추가해 주세요.',
-  official_channel: MOCK_CHANNEL,
-};
-
-function getMockResponse(text) {
-  return /주차|주정차|차량/.test(text) ? MOCK_PARKING : MOCK_STREETLIGHT;
-}
 
 // 서버로 보낼 파일 정보 (React Native FormData 형식)
 function toUploadFile(asset, index) {
@@ -177,11 +111,19 @@ export default function App() {
         images.forEach((img, i) => form.append('files', toUploadFile(img, i)));
 
         const res = await fetch(API_URL, { method: 'POST', body: form });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        setResult(await res.json());
+        const body = await res.json().catch(() => null);
+        if (!res.ok) {
+          // 백엔드는 오류 이유를 {"detail": "..."} 로 보냄 (예: 입력 없음, 사진 5장 초과)
+          const detail = typeof body?.detail === 'string' ? body.detail : `HTTP ${res.status}`;
+          throw new Error(detail);
+        }
+        setResult(body);
       }
     } catch (err) {
-      Alert.alert('연결 오류', '백엔드 서버와 통신할 수 없습니다.');
+      const msg = err instanceof TypeError
+        ? '백엔드 서버와 통신할 수 없습니다.'   // 네트워크 오류 (서버 꺼짐, 주소 틀림 등)
+        : err.message;
+      Alert.alert('오류', msg);
     } finally {
       setLoading(false);
     }

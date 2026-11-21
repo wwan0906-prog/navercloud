@@ -1,0 +1,6 @@
+.env
+data/minwon.db
+data/audio/
+__pycache__/
+.venv/
+.pytest_cache/
