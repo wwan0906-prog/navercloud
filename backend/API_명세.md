@@ -21,10 +21,10 @@
 ```bash
 cd minwon-app
 cp .env.example .env.local      # 배포 서버: EXPO_PUBLIC_API_BASE_URL=http://211.233.204.198:8000
-npx expo start -c               # 환경변수를 바꾼 뒤에는 -c 로 캐시 비우고 실행
+npx expo start                  # .env.local 을 고친 뒤에는 앱을 Reload
 ```
 
-`EXPO_PUBLIC_API_BASE_URL`이 비어 있거나 `EXPO_PUBLIC_USE_MOCK=true`면 서버 없이 `mock.js`의 목업으로 동작합니다.
+`EXPO_PUBLIC_API_BASE_URL`이 비어 있거나 `EXPO_PUBLIC_USE_MOCK=true`면 서버 없이 `src/mock.js`의 목업으로 동작합니다.
 
 ---
 
@@ -95,6 +95,17 @@ npx expo start -c               # 환경변수를 바꾼 뒤에는 -c 로 캐시
 | 503 | AI 연결 전인데 서버가 실제 모드로 설정됨 → 백엔드 담당에게 알려주세요 |
 
 ---
+
+## 입력 보조: 사진·음성 → 글자 (앱 `src/api.js`에 연결됨)
+
+| API | 요청 (`multipart/form-data`) | 응답 |
+|---|---|---|
+| `POST /api/ocr` | `image`: 문서 사진 한 장 (jpg · jpeg · png · pdf · tiff) | `{"text": "사진 속 글자"}` |
+| `POST /api/stt` | `audio`: 녹음 파일 (60초 이하, m4a · mp3 · wav 등), `lang`: `ko` · `en` · `ja` · `zh-CN` | `{"text": "말한 내용", "lang": "ko"}` |
+
+- 앱의 `recognizeImage()`가 `/api/ocr`, `transcribeAudio()`가 `/api/stt`를 부릅니다.
+- `/api/stt`는 CLOVA Speech Recognition이라 위 4개 언어만 됩니다. 다른 언어(예: `vi`)는 400 오류가 납니다.
+- 오류는 `{"detail": "..."}` 형식이고, 앱은 이 메시지를 알림창에 그대로 보여줍니다.
 
 ## 선택 기능 (화면을 추가할 때)
 

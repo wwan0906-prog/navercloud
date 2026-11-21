@@ -244,3 +244,28 @@ def test_analyze_normalizes_tuned_model_label(client, monkeypatch):
     monkeypatch.setattr(ai_client, 'classify', lambda t: {'category': ' "교통"\n', 'confidence': None})
     body = analyze(client, PARKING).json()
     assert body['main_category'] == '교통' and body['has_guide_data'] is True
+
+
+# ---------------------------------------------------------------- 사진·음성 → 글자
+def test_ocr(client):
+    r = client.post('/api/ocr', files={'image': ('a.png', '민원 신청서'.encode(), 'image/png')})
+    assert r.status_code == 200 and r.json() == {'text': '민원 신청서'}
+    assert client.post('/api/ocr', files={'image': ('a.gif', b'x', 'image/gif')}).status_code == 400
+    assert client.post('/api/ocr').status_code == 422
+
+
+def test_stt(client, monkeypatch):
+    seen = {}
+
+    def fake_stt(data, lang='ko'):
+        seen.update(data=data, lang=lang)
+        return '가로등이 고장났어요'
+    monkeypatch.setattr(clova_io, 'transcribe_audio', fake_stt)
+    r = client.post('/api/stt', files={'audio': ('voice.m4a', b'm4a-bytes', 'audio/m4a')}, data={'lang': 'en'})
+    assert r.status_code == 200 and r.json() == {'text': '가로등이 고장났어요', 'lang': 'en'}
+    assert seen == {'data': b'm4a-bytes', 'lang': 'en'}
+
+
+def test_stt_unsupported_language(client):
+    r = client.post('/api/stt', files={'audio': ('v.m4a', b'x', 'audio/m4a')}, data={'lang': 'vi'})
+    assert r.status_code == 400 and 'vi' in r.json()['detail']
