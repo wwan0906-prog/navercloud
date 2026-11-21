@@ -308,3 +308,22 @@ def test_made_up_evidence_is_not_sufficient(client, monkeypatch):
 ])
 def test_is_grounded(value, text, grounded):
     assert rules.is_grounded(value, text) is grounded
+
+
+# ---------------------------------------------------------------- 8개 서비스 분야
+def test_service_category_in_response(client):
+    assert analyze(client, PARKING).json()['service_category'] == '교통·자동차'
+    assert analyze(client, STREETLIGHT).json()['service_category'] == '도로·안전시설'
+
+
+def test_service_category_from_tuned_model(client, monkeypatch):
+    monkeypatch.setattr(ai_client, 'classify',
+                        lambda t: {'category': '산림', 'confidence': None, 'service_category': '산림·농업'})
+    assert analyze(client, '놀이터 그네가 끊어졌어요').json()['service_category'] == '산림·농업'
+
+
+def test_service_of_covers_all_18():
+    seed = json.loads(open('data/guide_seed.json', encoding='utf-8').read())
+    services = {ai_client.service_of(c['id']) for c in seed['categories']}
+    assert None not in services and len(services) == 8
+    assert ai_client.service_of('없는분야') is None

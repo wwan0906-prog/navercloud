@@ -120,6 +120,8 @@ def analyze(complaint_text: str = Form(''), files: Optional[List[UploadFile]] = 
     result = {
         # ---- 프론트엔드 약속안 필드
         'main_category': cls['category'],
+        # 화면 표시용 8개 서비스 분야 (튜닝 모델 결과. mock 이면 mapping.json 으로 계산)
+        'service_category': cls.get('service_category') or ai_client.service_of(cls['category']),
         'field_checks': [{k: c[k] for k in ('key', 'label', 'status', 'evidence', 'suggestion')}
                          for c in checks],
         'guide_message': message,
