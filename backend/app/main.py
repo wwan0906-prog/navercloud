@@ -76,6 +76,8 @@ def analyze(complaint_text: str = Form(''), files: Optional[List[UploadFile]] = 
     # 3. AI 분류 · 추출 (2번 팀원 담당, 지금은 mock)
     try:
         cls = ai_client.classify(text)
+        cls['category'] = ai_client.normalize_category(
+            cls.get('category'), [c['id'] for c in db.list_categories()])
         category = db.get_category(cls['category'])
         extracted = ai_client.extract(text, category) if category and category['fields'] else {}
     except ai_client.AINotReady as e:

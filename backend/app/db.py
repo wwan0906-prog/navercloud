@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS fields (
     key         TEXT NOT NULL,
     label       TEXT NOT NULL,
     required    INTEGER NOT NULL DEFAULT 1,
+    when_rule   TEXT,                  -- 조건부 필수 조건 (seed 의 when). NULL 이면 항상 필수
+    check_rule  TEXT,                  -- 충족 판정 기준 문장 (seed 의 check)
     min_length  INTEGER,
     pattern     TEXT,
     hint        TEXT,
@@ -91,9 +93,10 @@ def init() -> dict:
             conn.executescript('DROP TABLE IF EXISTS channels; DROP TABLE IF EXISTS fields;'
                                ' DROP TABLE IF EXISTS subtypes; DROP TABLE IF EXISTS categories;'
                                ' DROP TABLE IF EXISTS complaints;')
-        conn.executescript(SCHEMA)
+        # 가이드 테이블은 매번 새로 만듦 (컬럼이 바뀌어도 예전 DB 파일을 지울 필요 없게)
         for table in GUIDE_TABLES:
-            conn.execute(f'DELETE FROM {table}')
+            conn.execute(f'DROP TABLE IF EXISTS {table}')
+        conn.executescript(SCHEMA)
 
         def add_channel(ch, category_id=None):
             if ch:
@@ -109,10 +112,12 @@ def init() -> dict:
             add_channel(cat.get('official_channel'), category_id=cat['id'])
             for j, f in enumerate(cat.get('fields', [])):
                 conn.execute(
-                    'INSERT INTO fields (category_id, key, label, required, min_length, pattern,'
-                    ' hint, example, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    'INSERT INTO fields (category_id, key, label, required, when_rule, check_rule,'
+                    ' min_length, pattern, hint, example, sort_order)'
+                    ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                     (cat['id'], f['key'], f.get('label', f['key']), int(f.get('required', True)),
-                     f.get('min_length'), f.get('pattern'), f.get('hint'), f.get('example'), j))
+                     f.get('when'), f.get('check'), f.get('min_length'), f.get('pattern'),
+                     f.get('hint'), f.get('example'), j))
                 counts['fields'] += 1
     return counts
 
@@ -144,8 +149,8 @@ def get_category(category_id: str) -> dict | None:
         category['fields'] = [
             {**dict(f), 'required': bool(f['required'])}
             for f in conn.execute(
-                'SELECT key, label, required, min_length, pattern, hint, example'
-                ' FROM fields WHERE category_id = ? ORDER BY sort_order', (category_id,))
+                'SELECT key, label, required, when_rule AS "when", check_rule AS "check",'
+                ' min_length, pattern, hint, example FROM fields WHERE category_id = ? ORDER BY sort_order', (category_id,))
         ]
         category['official_channel'] = _channel(conn, category_id)
         return category

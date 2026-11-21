@@ -8,7 +8,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from app import ai_client, clova_io, guide, main, rules
+from app import ai_client, clova_io, db, guide, main, rules
 
 STREETLIGHT = '집 앞 골목 가로등이 어제부터 안 켜져서 밤에 너무 위험해요.'
 PARKING = '상가 앞에 불법 주정차 차량이 계속 세워져 있어 통행이 어렵습니다.'
@@ -81,11 +81,19 @@ def test_complete_complaint(client):
     assert body['is_complete'] is True and '모두 들어 있습니다' in body['guide_message']
 
 
-def test_category_without_fields(client):
+def test_common_category_has_fields(client):
     body = analyze(client, '주민등록등본 발급 시간이 궁금합니다').json()
-    assert body['main_category'] == '공통' and body['field_checks'] == []
-    assert body['has_guide_data'] is False and '준비 중' in body['guide_message']
+    assert body['main_category'] == '공통' and body['has_guide_data'] is True
+    assert [c['key'] for c in body['field_checks']] == ['target', 'issue_details', 'request']
     assert body['official_channel']['agency'] == '국민신문고'
+
+
+def test_category_without_fields(client, monkeypatch):
+    real = db.get_category
+    monkeypatch.setattr(db, 'get_category', lambda cid: {**real(cid), 'fields': []})
+    body = analyze(client, '주민등록등본 발급 시간이 궁금합니다').json()
+    assert body['field_checks'] == [] and body['has_guide_data'] is False
+    assert '준비 중' in body['guide_message']
 
 
 def test_unknown_category(client, monkeypatch):
@@ -124,12 +132,23 @@ def test_ai_not_ready(client, monkeypatch):
 
 
 def test_ai_guide_message_and_not_applicable(client, monkeypatch):
+    # location 은 when 있음(현장 신고일 때만 필수) → 해당 없음 인정
+    monkeypatch.setattr(ai_client, 'extract', lambda t, c: {
+        'fields': {'facility_or_work': '가로등', 'risk_status': '불이 안 켜짐', 'request': '수리 요청'},
+        'not_applicable': ['location'], 'guide_message': 'AI가 만든 안내문'})
+    body = analyze(client, STREETLIGHT).json()
+    assert status_of(body)['location'] == 'not_applicable'
+    assert body['is_complete'] is True and body['guide_message'] == 'AI가 만든 안내문'
+
+
+def test_not_applicable_ignored_for_unconditional_field(client, monkeypatch):
+    # request 는 when 없음(항상 필수) → AI 가 해당 없음이라고 해도 값으로 판정
     monkeypatch.setattr(ai_client, 'extract', lambda t, c: {
         'fields': {'facility_or_work': '가로등', 'location': '세종대로 209', 'risk_status': '불이 안 켜짐'},
-        'not_applicable': ['request'], 'guide_message': 'AI가 만든 안내문'})
+        'not_applicable': ['request']})
     body = analyze(client, STREETLIGHT).json()
-    assert status_of(body)['request'] == 'not_applicable'
-    assert body['is_complete'] is True and body['guide_message'] == 'AI가 만든 안내문'
+    assert status_of(body)['request'] == 'missing'
+    assert body['is_complete'] is False and '요청 조치를 보완해 주세요' in body['guide_message']
 
 
 def test_saved_listed_and_audio_cached(client):
@@ -154,6 +173,10 @@ def test_categories(client):
     cats = client.get('/api/categories').json()
     assert [c['id'] for c in cats][:3] == ['자동차', '안전건설', '교통']
     assert cats[1]['fields'][0]['key'] == 'facility_or_work'
+    loc = cats[1]['fields'][1]
+    assert loc['key'] == 'location' and loc['when'] and loc['check']
+    assert cats[1]['fields'][0]['when'] is None
+    assert all(c['fields'] for c in cats)
 
 
 # ---------------------------------------------------------------- 규칙 엔진 · 문장
@@ -169,6 +192,16 @@ def test_rule_location(value, status):
     assert rules.check_field(field, value)['status'] == status
 
 
+@pytest.mark.parametrize('field, na, status', [
+    ({'key': 'x', 'label': 'x', 'when': '현장 신고인 경우'}, True, 'not_applicable'),
+    ({'key': 'x', 'label': 'x', 'when': '현장 신고인 경우'}, False, 'missing'),
+    ({'key': 'x', 'label': 'x'}, True, 'missing'),
+    ({'key': 'x', 'label': 'x', 'when': '  '}, True, 'missing'),
+])
+def test_rule_when(field, na, status):
+    assert rules.check_field(field, None, not_applicable=na)['status'] == status
+
+
 def test_josa():
     assert guide.josa('요청 조치', '을', '를') == '요청 조치를'
     assert guide.josa('요청 사항', '을', '를') == '요청 사항을'
@@ -181,3 +214,33 @@ def test_seed_is_valid():
     for cat in seed['categories']:
         keys = [f['key'] for f in cat['fields']]
         assert len(keys) == len(set(keys)), f'{cat["id"]}: 필드 key 중복'
+        assert keys, f'{cat["id"]}: 필드 없음'
+        for f in cat['fields']:
+            assert f.get('hint') and f.get('example'), f'{cat["id"]}.{f["key"]}: hint/example 없음'
+
+
+def test_seed_matches_requirements():
+    """guide_seed.json 의 key·label·check·when 이 팀 기준 파일과 같은지"""
+    seed = json.loads(open('data/guide_seed.json', encoding='utf-8').read())
+    req = json.loads(open('data/category_requirements.json', encoding='utf-8').read())
+    pick = lambda f: (f['key'], f['label'], f['check'], f.get('when'))
+    assert {c['id'] for c in seed['categories']} == set(req['categories'])
+    for cat in seed['categories']:
+        expected = [pick(f) for f in req['categories'][cat['id']]['required_fields']]
+        assert [pick(f) for f in cat['fields']] == expected, cat['id']
+
+
+@pytest.mark.parametrize('raw, expected', [
+    ('교통', '교통'), (' "교통" ', '교통'), ('교통.', '교통'), ('분류: 세무', '세무'),
+    ('문화·체육·관광', '문화_체육_관광'), ('문화 체육 관광', '문화_체육_관광'), ('농업/축산', '농업_축산'),
+    ('이 민원은 상하수도 분야입니다', '상하수도'), ('없는분야', '없는분야'), (None, ''),
+])
+def test_normalize_category(raw, expected):
+    ids = ['교통', '세무', '문화_체육_관광', '농업_축산', '상하수도']
+    assert ai_client.normalize_category(raw, ids) == expected
+
+
+def test_analyze_normalizes_tuned_model_label(client, monkeypatch):
+    monkeypatch.setattr(ai_client, 'classify', lambda t: {'category': ' "교통"\n', 'confidence': None})
+    body = analyze(client, PARKING).json()
+    assert body['main_category'] == '교통' and body['has_guide_data'] is True

@@ -3,19 +3,26 @@
 백엔드는 아래 두 함수만 부릅니다. 2번 팀원은 _real_classify / _real_extract 만 채우면 됩니다.
 
     classify(text) -> {"category": str, "confidence": float | None}
-        HCX + RAG: 민원 18개 대분류 중 하나로 분류. (파인튜닝 대신 RAG 사용으로 변경)
+        HCX 튜닝 모델: 민원 18개 대분류 중 하나로 분류.
+        튜닝 모델 호출: POST https://clovastudio.stream.ntruss.com/v2/tasks/{taskId}/chat-completions
+                      (Authorization: Bearer {CLOVASTUDIO_API_KEY}, .env 의 HCX_TUNING_TASK_ID)
+        모델 출력에 따옴표·공백·가운뎃점이 섞여도 백엔드가 normalize_category() 로 라벨을 맞춥니다.
         "category" 는 data/guide_seed.json 의 categories[].id 와 같은 문자열이어야 합니다.
         (AI Hub 대분류 그대로: 자동차, 안전건설, 교통, ..., 문화_체육_관광, 농업_축산 ...)
 
     extract(text, category) -> {
         "fields": {key: 원문에서 찾은 구절 또는 None},
-        "not_applicable": [key, ...],        # 선택. 이 민원에는 해당 없는 항목
+        "not_applicable": [key, ...],        # 선택. when 조건에 해당하지 않는 항목
         "guide_message": str,                # 선택. 주면 백엔드가 만든 안내문 대신 사용
     }
         HCX Prompt: 정보 추출.
-        category["fields"][i] = {"key", "label", "hint", "example", ...} 가 추출할 항목입니다.
+        category["fields"][i] = {"key", "label", "check", "when", "hint", "example", ...} 가 추출할 항목입니다.
+        (기준: data/category_requirements.json. check = 충족 판정 기준, when = 조건부 필수 조건)
         값은 원문의 해당 구절을 그대로 넣으세요 (화면에 '원문: "..."' 으로 표시됨).
-        원문에 없으면 None. 충족·불충분·누락 판정은 백엔드 rules.py 가 합니다.
+        원문에 없으면 None. 추정으로 값을 만들지 마세요 (기준 파일 rules.evidence).
+        when 이 있는 항목은 이 민원이 그 조건에 해당하지 않으면 not_applicable 에 key 를 넣으세요.
+        when 이 없는 항목은 항상 필수라서 not_applicable 에 넣어도 무시됩니다.
+        충족·불충분·누락 판정은 백엔드 rules.py 가 합니다.
 
 .env 의 AI_MODE:
     mock (기본) 가짜 응답. 프론트엔드·백엔드 개발용
@@ -29,6 +36,22 @@ import re
 
 class AINotReady(RuntimeError):
     """AI_MODE=real 인데 아직 실제 호출 코드가 연결되지 않았을 때."""
+
+
+def normalize_category(label, valid_ids) -> str:
+    """튜닝 모델이 낸 라벨을 DB 의 대분류 id 로 맞춥니다. 못 맞추면 정리한 문자열을 그대로 돌려줍니다.
+    예: ' "교통" ' → 교통 / '문화·체육·관광' → 문화_체육_관광 / '분류: 세무' → 세무"""
+    text = str(label or '').strip().strip('"\'`[](){}<>.。 ')
+    if text.startswith('분류:') or text.startswith('대분류:'):
+        text = text.split(':', 1)[1].strip()
+    if text in valid_ids:
+        return text
+    key = re.sub(r'[\s·ㆍ,/_-]+', '_', text).strip('_')
+    for vid in valid_ids:
+        if key == vid or key.replace('_', '') == vid.replace('_', ''):
+            return vid
+    found = [vid for vid in valid_ids if vid in text]       # 문장 속에 라벨이 하나만 들어 있는 경우
+    return found[0] if len(found) == 1 else text
 
 
 def mode() -> str:
@@ -45,7 +68,7 @@ def extract(text: str, category: dict) -> dict:
 
 # ---------------------------------------------------------------- 실제 호출 (2번 팀원이 채울 곳)
 def _real_classify(text: str) -> dict:
-    raise AINotReady('분류(HCX + RAG) 연결 전입니다. .env 에서 AI_MODE=mock 으로 테스트하세요.')
+    raise AINotReady('분류(HCX 튜닝 모델) 연결 전입니다. .env 에서 AI_MODE=mock 으로 테스트하세요.')
 
 
 def _real_extract(text: str, category: dict) -> dict:
