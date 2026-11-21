@@ -63,7 +63,7 @@ def test_streetlight_matches_frontend_mock(client):
     loc = next(c for c in body['field_checks'] if c['key'] == 'location')
     assert loc['evidence'] == '집 앞 골목' and '도로명 주소' in loc['suggestion']
     assert set(body['field_checks'][0]) == {'key', 'label', 'status', 'evidence', 'suggestion'}
-    assert body['official_channel'] == {'agency': '국민신문고', 'url': 'https://www.epeople.go.kr', 'phone': '110'}
+    assert body['official_channel']['agency'] == '안전신문고'          # 분야별 채널 적용 (guide_seed official_channel)
     assert '발생 위치, 요청 조치를 보완해 주세요' in body['guide_message']
     assert body['is_complete'] is False
 

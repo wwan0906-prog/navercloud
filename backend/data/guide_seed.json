@@ -5,8 +5,8 @@
     "categories: AI Hub '민원 업무 자동화 인공지능 언어 데이터' 대분류 18개. id 는 AI 분류가 돌려주는 main_category 와 글자 하나까지 같아야 합니다.",
     "분야별 필수 정보(fields)의 key·label·check·when 은 팀 기준 파일 data/category_requirements.json(민원 18개 카테고리 공식요건 검수, schema 1.0.0)과 같아야 합니다. 기준 파일이 바뀌면 여기도 같이 고치세요 (tests/test_api.py 가 비교함).",
     "min_length·pattern·hint·example 은 기준 파일에 없는 값으로, 백엔드가 판정 보조·화면 안내용으로 덧붙인 것입니다.",
-    "※ 미정: 분야별 공식 접수 채널(official_channel). 지금은 모두 default_channel(국민신문고)을 씁니다.",
-    "fields[]: key(정보 추출 결과의 키) / label(화면 표시 이름) / required(필수 여부) / when(있으면 조건부 필수: 조건에 해당하지 않으면 AI 가 not_applicable 로 표시) / check(충족 판정 기준, AI 추출 프롬프트용) / min_length(최소 글자 수) / pattern(정규식. 안 맞으면 불충분) / hint(보완 안내 = suggestion) / example(작성 예시)"
+    "fields[]: key(정보 추출 결과의 키) / label(화면 표시 이름) / required(필수 여부) / when(있으면 조건부 필수: 조건에 해당하지 않으면 AI 가 not_applicable 로 표시) / check(충족 판정 기준, AI 추출 프롬프트용) / min_length(최소 글자 수) / pattern(정규식. 안 맞으면 불충분) / hint(보완 안내 = suggestion) / example(작성 예시)",
+    "official_channel: 분야별 공식 접수 채널 (2026-11-21 공식 출처 확인, source·checked_at 기록). 신고용 1순위 채널 기준. 데모 지역 = 창원시"
   ],
   "default_channel": {
     "agency": "국민신문고",
@@ -54,7 +54,14 @@
           "hint": "확인·변경·점검 등 원하는 처리를 적어 주세요.",
           "example": "과태료 부과 기준 안내 요청"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "안전신문고",
+        "url": "https://www.safetyreport.go.kr",
+        "phone": "110",
+        "source": "https://www.korea.kr/multi/visualNewsView.do?newsId=148923015",
+        "checked_at": "2026-11-21"
+      }
     },
     {
       "id": "안전건설",
@@ -97,7 +104,14 @@
           "hint": "점검·수리 등 원하는 조치를 적어 주세요.",
           "example": "수리 요청"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "안전신문고",
+        "url": "https://www.safetyreport.go.kr",
+        "phone": "110",
+        "source": "https://www.korea.kr/multi/visualNewsView.do?newsId=148923015",
+        "checked_at": "2026-11-21"
+      }
     },
     {
       "id": "교통",
@@ -140,7 +154,14 @@
           "hint": "단속·계도 등 원하는 조치를 적어 주세요.",
           "example": "주기적인 단속 요청"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "안전신문고",
+        "url": "https://www.safetyreport.go.kr",
+        "phone": "110",
+        "source": "https://www.korea.kr/multi/visualNewsView.do?newsId=148923015",
+        "checked_at": "2026-11-21"
+      }
     },
     {
       "id": "건축허가",
@@ -183,7 +204,14 @@
           "hint": "어떤 절차·요건·처리를 확인하고 싶은지 적어 주세요.",
           "example": "증축할 때 허가와 신고 중 무엇이 필요한지 문의"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "창원시 민원콜센터",
+        "url": "https://www.changwon.go.kr",
+        "phone": "055-225-2114",
+        "source": "https://www.changwon.go.kr (하단 footer 민원콜센터)",
+        "checked_at": "2026-11-21"
+      }
     },
     {
       "id": "환경미화",
@@ -225,7 +253,14 @@
           "hint": "수거·청소·단속 등 원하는 처리를 적어 주세요.",
           "example": "수거 및 무단투기 단속 요청"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "안전신문고",
+        "url": "https://www.safetyreport.go.kr",
+        "phone": "110",
+        "source": "https://www.korea.kr/multi/visualNewsView.do?newsId=148923015",
+        "checked_at": "2026-11-21"
+      }
     },
     {
       "id": "공통",
@@ -257,7 +292,14 @@
           "hint": "행정기관에 바라는 답변이나 조치를 적어 주세요.",
           "example": "주 1회 야간 운영 검토 요청"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "국민신문고",
+        "url": "https://www.epeople.go.kr",
+        "phone": "110",
+        "source": "https://www.epeople.go.kr",
+        "checked_at": "2026-11-21"
+      }
     },
     {
       "id": "산림",
@@ -299,7 +341,14 @@
           "hint": "점검·정비·보호 등 원하는 처리를 적어 주세요.",
           "example": "안전 점검 및 가지치기 요청"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "창원시 민원콜센터",
+        "url": "https://www.changwon.go.kr",
+        "phone": "055-225-2114",
+        "source": "https://www.changwon.go.kr (하단 footer 민원콜센터)",
+        "checked_at": "2026-11-21"
+      }
     },
     {
       "id": "행정",
@@ -341,7 +390,14 @@
           "hint": "처리 상황 확인·설명 등 원하는 조치를 적어 주세요.",
           "example": "처리 진행 상황 확인 요청"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "국민신문고",
+        "url": "https://www.epeople.go.kr",
+        "phone": "110",
+        "source": "https://www.epeople.go.kr",
+        "checked_at": "2026-11-21"
+      }
     },
     {
       "id": "복지",
@@ -383,7 +439,14 @@
           "hint": "신청 방법·대상 여부 안내 등 원하는 답변을 적어 주세요.",
           "example": "대상 여부와 신청 방법 안내 요청"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "복지로",
+        "url": "https://www.bokjiro.go.kr",
+        "phone": "129",
+        "source": "https://mohw.go.kr/menu.es?mid=a10209000000 (보건복지부: 보건복지상담센터 129), 복지로 누리집 이용문의 1566-0313",
+        "checked_at": "2026-11-21"
+      }
     },
     {
       "id": "세무",
@@ -425,7 +488,14 @@
           "hint": "계산 근거 설명·정정·납부 안내 등 원하는 처리를 적어 주세요.",
           "example": "세액 산정 근거 설명 요청"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "위택스",
+        "url": "https://www.wetax.go.kr",
+        "phone": "110",
+        "source": "https://apps.apple.com/us/app/-/id888585740 (스마트 위택스 앱 고객센터 110), 서울시 안내 https://news.seoul.go.kr/gov/archives/562028",
+        "checked_at": "2026-11-21"
+      }
     },
     {
       "id": "문화_체육_관광",
@@ -468,7 +538,14 @@
           "hint": "시설 개선·환불 절차 안내 등 원하는 조치를 적어 주세요.",
           "example": "환불 절차 안내 요청"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "창원시 민원콜센터",
+        "url": "https://www.changwon.go.kr",
+        "phone": "055-225-2114",
+        "source": "https://www.changwon.go.kr (하단 footer 민원콜센터)",
+        "checked_at": "2026-11-21"
+      }
     },
     {
       "id": "보건소",
@@ -511,7 +588,14 @@
           "hint": "이용하려는 지역(시·군·구)을 적어 주세요.",
           "example": "OO구"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "창원시 민원콜센터",
+        "url": "https://www.changwon.go.kr",
+        "phone": "055-225-2114",
+        "source": "https://www.changwon.go.kr (하단 footer 민원콜센터)",
+        "checked_at": "2026-11-21"
+      }
     },
     {
       "id": "위생",
@@ -553,7 +637,14 @@
           "hint": "위생 점검·신고 접수 등 원하는 처리를 적어 주세요.",
           "example": "위생 점검 요청"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "창원시 민원콜센터",
+        "url": "https://www.changwon.go.kr",
+        "phone": "055-225-2114",
+        "source": "https://www.changwon.go.kr (하단 footer 민원콜센터)",
+        "checked_at": "2026-11-21"
+      }
     },
     {
       "id": "상하수도",
@@ -595,7 +686,14 @@
           "hint": "현장 점검·수리·요금 설명 등 원하는 조치를 적어 주세요.",
           "example": "현장 점검 및 수리 요청"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "창원시 민원콜센터",
+        "url": "https://www.changwon.go.kr",
+        "phone": "055-225-2114",
+        "source": "https://www.changwon.go.kr (하단 footer 민원콜센터)",
+        "checked_at": "2026-11-21"
+      }
     },
     {
       "id": "경제",
@@ -637,7 +735,14 @@
           "hint": "신청 절차·제도 설명 등 원하는 답변을 적어 주세요.",
           "example": "신청 가능 여부와 절차 안내 요청"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "창원시 민원콜센터",
+        "url": "https://www.changwon.go.kr",
+        "phone": "055-225-2114",
+        "source": "https://www.changwon.go.kr (하단 footer 민원콜센터)",
+        "checked_at": "2026-11-21"
+      }
     },
     {
       "id": "농업_축산",
@@ -689,7 +794,14 @@
           "hint": "점검·복구·지원·제도 안내 등 원하는 처리를 적어 주세요.",
           "example": "피해 조사 및 복구 지원 요청"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "창원시 민원콜센터",
+        "url": "https://www.changwon.go.kr",
+        "phone": "055-225-2114",
+        "source": "https://www.changwon.go.kr (하단 footer 민원콜센터)",
+        "checked_at": "2026-11-21"
+      }
     },
     {
       "id": "토지",
@@ -731,7 +843,14 @@
           "hint": "경계 확인·측량·정보 정정 등 원하는 조치를 적어 주세요.",
           "example": "경계 복원 측량 절차 안내 요청"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "창원시 민원콜센터",
+        "url": "https://www.changwon.go.kr",
+        "phone": "055-225-2114",
+        "source": "https://www.changwon.go.kr (하단 footer 민원콜센터)",
+        "checked_at": "2026-11-21"
+      }
     },
     {
       "id": "정보통신",
@@ -773,7 +892,14 @@
           "hint": "수정·점검·사용 방법 안내 등 원하는 조치를 적어 주세요.",
           "example": "오류 수정 요청"
         }
-      ]
+      ],
+      "official_channel": {
+        "agency": "국민신문고",
+        "url": "https://www.epeople.go.kr",
+        "phone": "110",
+        "source": "https://www.epeople.go.kr",
+        "checked_at": "2026-11-21"
+      }
     }
   ]
 }
