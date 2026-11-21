@@ -173,7 +173,6 @@ export default function App() {
             <View style={{ marginTop: 10 }}>
               <VoiceInput
                 lang={lang}
-                supported={language.csr}
                 disabled={analyzing || ocrBusy}
                 onText={appendText}
                 onBusyChange={setVoiceBusy}

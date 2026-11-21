@@ -2,13 +2,13 @@ export const MAX_IMAGES = 5;
 // CLOVA Speech Recognition(짧은 문장 인식)은 60초 이하 음성만 받습니다.
 export const MAX_RECORDING_SEC = 60;
 
-// 입력 언어. papago: Papago 언어 코드 / speech: 기기 음성 출력 코드 / csr: 음성 입력 지원 여부
+// 입력 언어: CLOVA Speech 단문 인식이 지원하는 4개 언어만 사용
+// code: Papago 언어 코드 / speech: 기기 음성 출력 코드
 export const LANGUAGES = [
-  { code: 'ko', label: '한국어', speech: 'ko-KR', csr: true, placeholder: '민원 내용을 자유롭게 작성해 주세요...' },
-  { code: 'en', label: 'English', speech: 'en-US', csr: true, placeholder: 'Describe your complaint...' },
-  { code: 'ja', label: '日本語', speech: 'ja-JP', csr: true, placeholder: '苦情の内容を入力してください...' },
-  { code: 'zh-CN', label: '中文', speech: 'zh-CN', csr: true, placeholder: '请输入投诉内容...' },
-  { code: 'vi', label: 'Tiếng Việt', speech: 'vi-VN', csr: false, placeholder: 'Nhập nội dung khiếu nại...' },
+  { code: 'ko', label: '한국어', speech: 'ko-KR', placeholder: '민원 내용을 자유롭게 작성해 주세요...' },
+  { code: 'en', label: 'English', speech: 'en-US', placeholder: 'Describe your complaint...' },
+  { code: 'ja', label: '日本語', speech: 'ja-JP', placeholder: '苦情の内容を入力してください...' },
+  { code: 'zh-CN', label: '中文', speech: 'zh-CN', placeholder: '请输入投诉内容...' },
 ];
 export const getLanguage = (code) => LANGUAGES.find((l) => l.code === code) ?? LANGUAGES[0];
 

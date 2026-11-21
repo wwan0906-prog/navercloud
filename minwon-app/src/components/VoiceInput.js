@@ -11,7 +11,7 @@ import { colors } from './ui';
 
 const fmt = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 
-export default function VoiceInput({ lang, supported, disabled, onText, onBusyChange }) {
+export default function VoiceInput({ lang, disabled, onText, onBusyChange }) {
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const state = useAudioRecorderState(recorder, 250);
   const [converting, setConverting] = useState(false);
@@ -24,10 +24,6 @@ export default function VoiceInput({ lang, supported, disabled, onText, onBusyCh
   }, [recording, converting]);
 
   const start = async () => {
-    if (!supported) {
-      Alert.alert('알림', '선택한 언어는 음성 입력을 지원하지 않습니다. 글로 입력해 주세요.');
-      return;
-    }
     const perm = await requestRecordingPermissionsAsync();
     if (!perm.granted) {
       Alert.alert('권한 필요', '음성으로 입력하려면 마이크 권한을 허용해 주세요.');
@@ -87,7 +83,7 @@ export default function VoiceInput({ lang, supported, disabled, onText, onBusyCh
 
   return (
     <TouchableOpacity
-      style={[styles.btn, (disabled || converting || !supported) && styles.disabled]}
+      style={[styles.btn, (disabled || converting) && styles.disabled]}
       onPress={start}
       disabled={disabled || converting}
     >
