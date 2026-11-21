@@ -147,7 +147,10 @@ def classify(text: str) -> dict:
     """ai_client._real_classify 용. category = AI Hub 대분류 id (guide_seed.json categories[].id 와 동일)"""
     svc = classify_service(text)
     if not svc['service']:
-        raise RuntimeError(f'분야를 판독하지 못했습니다: {svc["raw"][:60]!r}')
+        # 튜닝 모델 답이 8개 분야 어디에도 안 맞으면 오류 대신 '공통'(일반 진정·건의)으로 (백엔드 담당 수정)
+        return {'category': '공통', 'confidence': None, 'service_category': '세무·행정',
+                'intent': '문의' if re.search(r'(나요|가요|까요|어떻게|궁금)', text) else '신고',
+                'fallback': f'분야 판독 실패: {svc["raw"][:60]!r}'}
     if len(MAPPING[svc['service']]) == 1:
         sub = {'subtype': MAPPING[svc['service']][0], 'intent': '신고', 'raw': ''}
     else:

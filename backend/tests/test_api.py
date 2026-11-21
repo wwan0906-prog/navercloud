@@ -4,11 +4,12 @@ CLOVA OCR/Voice 는 가짜 함수로 바꿔서 실제 API 를 부르지 않습�
 DB 는 임시 폴더에 따로 만듭니다.
 """
 import json
+import re
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app import ai_client, clova_io, db, guide, main, rules
+from app import ai_client, assist, clova_io, db, guide, hcx, main, rules, translate
 
 STREETLIGHT = '집 앞 골목 가로등이 어제부터 안 켜져서 밤에 너무 위험해요.'
 PARKING = '상가 앞에 불법 주정차 차량이 계속 세워져 있어 통행이 어렵습니다.'
@@ -40,8 +41,8 @@ def client(tmp_path, monkeypatch):
         yield c
 
 
-def analyze(client, text='', files=()):
-    return client.post('/api/analyze', data={'complaint_text': text},
+def analyze(client, text='', files=(), lang='ko'):
+    return client.post('/api/analyze', data={'complaint_text': text, 'lang': lang},
                        files=[('files', f) for f in files])
 
 
@@ -98,7 +99,7 @@ def test_category_without_fields(client, monkeypatch):
 
 def test_unknown_category(client, monkeypatch):
     monkeypatch.setattr(ai_client, 'classify', lambda t: {'category': '없는분야', 'confidence': 0.4})
-    body = analyze(client, '아무 민원').json()
+    body = analyze(client, '아무 민원이나 적어 봅니다').json()
     assert body['main_category'] == '없는분야' and body['field_checks'] == []
     assert '안내 기준이 없습니다' in body['guide_message']
 
@@ -130,7 +131,7 @@ def test_ai_not_ready(client, monkeypatch):
     # .env 에 HCX 키가 있어도 '키 없음' 상황을 만들어서 실제 HCX 를 부르지 않게 함
     monkeypatch.delenv('CLOVASTUDIO_API_KEY', raising=False)
     monkeypatch.delenv('NCP_CLOVASTUDIO_API_KEY', raising=False)
-    r = analyze(client, '민원')
+    r = analyze(client, '집 앞 도로가 파였어요')
     assert r.status_code == 503 and '연결 전' in r.json()['detail']
 
 
@@ -327,3 +328,107 @@ def test_service_of_covers_all_18():
     services = {ai_client.service_of(c['id']) for c in seed['categories']}
     assert None not in services and len(services) == 8
     assert ai_client.service_of('없는분야') is None
+
+
+# ---------------------------------------------------------------- 앱 화면 형식 · 답변 초안 · 긴급도 · 요약
+def test_app_shape(client):
+    body = analyze(client, STREETLIGHT).json()
+    c = body['classification']
+    assert c == {'분야': '도로·안전시설', '세부유형': '안전건설', '유형': '신고', '긴급도': '일반',
+                 '요약': STREETLIGHT}
+    assert body['answer_draft'] and body['answer_translated'] is None and body['translated_text'] is None
+    assert body['consistency'] is None
+
+
+def test_urgent_by_danger_words(client, monkeypatch):
+    body = analyze(client, '아파트 1층 복도에서 가스 냄새가 심하게 나요. 지금도 계속 나고 있어요.').json()
+    assert body['classification']['긴급도'] == '긴급' and '119' in body['answer_draft']
+    # AI 가 '일반'이라고 해도 위험 표현이 있으면 긴급으로 올림
+    monkeypatch.setattr(assist, '_mock', lambda t: {'유형': '신고', '긴급도': '일반', '요약': 'x', 'answer_draft': 'y'})
+    body = analyze(client, '전선이 끊어져서 길에 늘어져 있어요 위험해요').json()
+    assert body['classification']['긴급도'] == '긴급'
+
+
+@pytest.mark.parametrize('text, kind', [
+    ('재산세 고지서를 잃어버렸는데 어떻게 다시 받을 수 있나요?', '문의'),
+    ('공원에 벤치를 더 설치해 주셨으면 좋겠습니다', '건의'),
+    ('주민센터 직원분이 친절하게 도와주셔서 감사합니다', '칭찬'),
+    (PARKING, '신고'),
+])
+def test_mock_kind(client, text, kind):
+    assert analyze(client, text).json()['classification']['유형'] == kind
+
+
+def test_short_input_is_rejected(client):
+    r = analyze(client, '도와주세요')
+    assert r.status_code == 400 and '짧' in r.json()['detail']
+
+
+def test_unsupported_lang(client):
+    assert analyze(client, STREETLIGHT, lang='vi').status_code == 400
+
+
+def test_foreign_language_is_translated(client, monkeypatch):
+    calls = []
+
+    def fake_translate(text, src, tgt):
+        calls.append((src, tgt))
+        return PARKING if tgt == 'ko' else 'We are sorry for the inconvenience.'
+    monkeypatch.setattr(translate, 'translate', fake_translate)
+    body = analyze(client, 'Illegally parked cars keep blocking the road in front of the shops.', lang='en').json()
+    assert calls == [('en', 'ko'), ('ko', 'en')]
+    assert body['translated_text'] == PARKING and body['main_category'] == '교통'
+    assert body['answer_translated'] == 'We are sorry for the inconvenience.'
+    assert body['complaint_text'].startswith('Illegally')
+
+
+def test_translate_engine_and_passthrough(monkeypatch):
+    monkeypatch.delenv('PAPAGO_CLIENT_ID', raising=False)
+    monkeypatch.setenv('AI_MODE', 'mock')
+    assert translate.engine() == 'none' and translate.translate('hello', 'en', 'ko') == 'hello'
+    monkeypatch.setenv('AI_MODE', 'real')
+    assert translate.engine() == 'hcx'
+    monkeypatch.setenv('PAPAGO_CLIENT_ID', 'id')
+    monkeypatch.setenv('PAPAGO_CLIENT_SECRET', 'secret')
+    assert translate.engine() == 'papago'
+    with pytest.raises(ValueError):
+        translate.translate('hi', 'vi', 'ko')
+
+
+def test_assist_real_parses_hcx_json(monkeypatch):
+    monkeypatch.setenv('AI_MODE', 'real')
+    monkeypatch.setattr(hcx, '_hcx', lambda *a, **k:
+                        '```json\n{"유형": "문의", "긴급도": "일반", "요약": "고지서 재발급 문의", "answer_draft": "안내해 드리겠습니다."}\n```')
+    out = assist.make('재산세 고지서를 다시 받고 싶어요', '세무', '세무·행정', [{'label': '과세 시기'}])
+    assert out == {'유형': '문의', '긴급도': '일반', '요약': '고지서 재발급 문의', 'answer_draft': '안내해 드리겠습니다.'}
+    monkeypatch.setattr(hcx, '_hcx', lambda *a, **k: '잘 모르겠습니다')       # JSON 이 아니면 키워드 판단으로 채움
+    out = assist.make('가스 냄새가 나요 빨리 와 주세요', '안전건설', None, [])
+    assert out['긴급도'] == '긴급' and out['answer_draft']
+
+
+def test_hcx_unknown_service_falls_back_to_common(monkeypatch):
+    monkeypatch.setattr(hcx, '_hcx', lambda *a, **k: '모르겠습니다')
+    out = hcx.classify('무슨 말인지 애매한 민원 내용입니다')
+    assert out['category'] == '공통' and out['service_category'] == '세무·행정' and out['fallback']
+
+
+# ---------------------------------------------------------------- 접수
+def test_submit_and_lookup(client):
+    first = analyze(client, STREETLIGHT).json()
+    r = client.post('/api/submit', json={'complaint_id': first['id']}).json()
+    assert re.fullmatch(r'MW-\d{8}-0001', r['receipt_no'])
+    assert r['department'] == '도로·안전시설' and r['status'] == 'received' and r['message']
+    # 같은 분석으로 다시 접수하면 같은 접수번호
+    assert client.post('/api/submit', json={'complaint_id': first['id']}).json()['receipt_no'] == r['receipt_no']
+    second = analyze(client, PARKING).json()
+    r2 = client.post('/api/submit', json={'complaint_id': second['id']}).json()
+    assert r2['receipt_no'].endswith('-0002')
+    assert client.get(f"/api/receipts/{r['receipt_no']}").json()['complaint_id'] == first['id']
+    assert client.get('/api/receipts/MW-00000000-0000').status_code == 404
+    assert client.post('/api/submit', json={'complaint_id': 9999}).status_code == 404
+
+
+def test_submit_urgent_waits_for_review(client):
+    a = analyze(client, '아파트 1층 복도에서 가스 냄새가 심하게 나요').json()
+    r = client.post('/api/submit', json={'complaint_id': a['id']}).json()
+    assert r['status'] == 'pending_review' and '담당자' in r['message']
