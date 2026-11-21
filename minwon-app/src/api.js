@@ -5,6 +5,7 @@
 // 연결 상태: ① 음성·사진 → 글자, ②~④ 분석, ⑤ 접수 모두 서버 연결됨 (규정 검사는 범위 제외)
 // 각 함수 안만 바꾸면 화면 코드는 그대로 쓸 수 있습니다.
 import { Platform } from 'react-native';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { MOCK_OCR_TEXT, MOCK_STT_TEXT, mockAnalyze, mockSubmit } from './mock';
 
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || '').replace(/\/+$/, '');
@@ -22,12 +23,45 @@ async function appendFile(form, field, { uri, name, type }) {
   }
 }
 
+// 파일(사진·녹음)을 올리는 요청.
+// Expo SDK 58의 기본 fetch(expo/fetch)는 React Native식 파일 파트({ uri, name, type })를 지원하지 않아
+// "Unsupported FormDataPart implementation"으로 실패함 → 네이티브에서는 XMLHttpRequest로 보냄
+const UPLOAD_TIMEOUT_MS = 60000;
+
+function uploadForm(path, form) {
+  if (Platform.OS === 'web') return postForm(path, form);
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE_URL}${path}`);
+    xhr.timeout = UPLOAD_TIMEOUT_MS;
+    xhr.onload = () => {
+      let body = null;
+      try {
+        body = JSON.parse(xhr.responseText);
+      } catch {}
+      if (xhr.status >= 200 && xhr.status < 300) resolve(body);
+      else reject(new Error(typeof body?.detail === 'string' ? body.detail : `서버 오류 (HTTP ${xhr.status})`));
+    };
+    xhr.onerror = () => {
+      console.warn(`[api] ${path} 업로드 실패 (네트워크 오류)`);
+      reject(new Error('서버와 통신할 수 없습니다. 인터넷 연결이나 서버 주소를 확인해 주세요.'));
+    };
+    xhr.ontimeout = () => {
+      console.warn(`[api] ${path} 업로드 시간 초과`);
+      reject(new Error('서버 응답이 너무 늦습니다. 잠시 후 다시 시도해 주세요.'));
+    };
+    xhr.send(form);
+  });
+}
+
 // 백엔드 호출. 실패하면 서버가 보낸 이유({"detail": "..."})를 메시지로 던짐
 async function postForm(path, form) {
   let res;
   try {
     res = await fetch(`${API_BASE_URL}${path}`, { method: 'POST', body: form });
-  } catch {
+  } catch (e) {
+    // 실제 원인을 개발 서버 로그(Metro)에 남겨 원인 파악이 가능하도록 함
+    console.warn(`[api] ${path} 요청 실패:`, e?.message ?? e);
     throw new Error('서버와 통신할 수 없습니다. 인터넷 연결이나 서버 주소를 확인해 주세요.');
   }
   const body = await res.json().catch(() => null);
@@ -48,7 +82,7 @@ export async function transcribeAudio(uri, lang) {
   const form = new FormData();
   await appendFile(form, 'audio', { uri, name: `voice.${ext}`, type: ext === 'm4a' ? 'audio/m4a' : `audio/${ext}` });
   form.append('lang', lang);
-  const { text } = await postForm('/api/stt', form);
+  const { text } = await uploadForm('/api/stt', form);
   return text;
 }
 
@@ -59,15 +93,36 @@ export async function recognizeImage(asset) {
     await delay(1100);
     return MOCK_OCR_TEXT;
   }
-  const ext = (asset.uri.split('?')[0].split('.').pop() || 'jpg').toLowerCase();
   const form = new FormData();
-  await appendFile(form, 'image', {
-    uri: asset.uri,
-    name: asset.fileName || `document.${ext}`,
-    type: asset.mimeType || 'image/jpeg',
-  });
-  const { text } = await postForm('/api/ocr', form);
+  await appendFile(form, 'image', await prepareImageForUpload(asset));
+  const { text } = await uploadForm('/api/ocr', form);
   return text;
+}
+
+// 휴대폰 원본 사진(수 MB, iOS는 HEIC)을 그대로 올리면 업로드가 느리거나 끊기고 OCR이 못 읽는 형식일 수 있음
+// → 긴 변 MAX_UPLOAD_EDGE px 이하의 JPEG로 바꿔서 보냄 (문서 글자 인식에는 충분한 해상도)
+const MAX_UPLOAD_EDGE = 1600;
+
+async function prepareImageForUpload(asset) {
+  const original = {
+    uri: asset.uri,
+    name: asset.fileName || `document.${(asset.uri.split('?')[0].split('.').pop() || 'jpg').toLowerCase()}`,
+    type: asset.mimeType || 'image/jpeg',
+  };
+  if (Platform.OS === 'web') return original;
+  try {
+    const { width = 0, height = 0 } = asset;
+    const context = ImageManipulator.manipulate(asset.uri);
+    if (Math.max(width, height) > MAX_UPLOAD_EDGE) {
+      context.resize(width >= height ? { width: MAX_UPLOAD_EDGE } : { height: MAX_UPLOAD_EDGE });
+    }
+    const image = await context.renderAsync();
+    const saved = await image.saveAsync({ compress: 0.7, format: SaveFormat.JPEG });
+    return { uri: saved.uri, name: 'document.jpg', type: 'image/jpeg' };
+  } catch (e) {
+    console.warn('[api] 사진 변환 실패, 원본으로 전송:', e?.message ?? e);
+    return original;
+  }
 }
 
 // ①~④ 번역 → 분류 → 필수 정보 점검 → 답변 초안·긴급도·요약 (서버: HCX 튜닝 모델 + 프롬프트)
