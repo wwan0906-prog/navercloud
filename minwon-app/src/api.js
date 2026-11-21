@@ -21,12 +21,14 @@ export async function recognizeImage(asset) {
 
 // ①~④ 번역 → 분류 → 답변 초안 → 규정 검사 (연동 예정: Papago, HCX 튜닝 모델, RAG, 모순 검사)
 // 반환 형식은 mock.js의 예시 객체를 참고하세요.
+// 서버 연동 시 분류 필드 매핑: service_category → classification.분야, category_name → classification.세부유형
+// (화면에는 "교통·자동차 > 자동차"처럼 표시됨)
 export async function analyzeComplaint(text, lang) {
   await delay(1200);
   return mockAnalyze(text, lang);
 }
 
-// ⑤ 접수 처리 (연동 예정: Function Calling — 접수번호 발급, 부서 배정, 긴급 민원은 담당자 확인 대기)
+// ⑤ 접수 처리 (연동 예정: Function Calling — 접수번호 발급, 분야 배정, 긴급 민원은 담당자 확인 대기)
 export async function submitComplaint(text, lang, analysis) {
   await delay(800);
   return mockSubmit(analysis);

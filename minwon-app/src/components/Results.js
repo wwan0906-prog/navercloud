@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Alert, Linking, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import {
   COMPLAINT_TYPES, CONSISTENCY_META, FIELD_STATUS_META, FIELD_STATUS_ORDER,
-  RECEIPT_STATUS_META, URGENCY_META, getLanguage,
+  RECEIPT_STATUS_META, URGENCY_META, formatCategory, getLanguage,
 } from '../config';
 import { Button, Card, Chip, SpeakButton, StepTitle, colors } from './ui';
 
@@ -40,19 +40,19 @@ export function UrgentBanner() {
   );
 }
 
-// ② 분류 결과: 부서 · 유형 · 긴급도 · 요약
+// ② 분류 결과: 분야(> 세부 유형) · 유형 · 긴급도 · 요약
 export function ClassificationCard({ classification }) {
   if (!classification) return null;
-  const { 부서, 유형, 긴급도, 요약 } = classification;
+  const { 유형, 긴급도, 요약 } = classification;
   const urgency = URGENCY_META[긴급도];
   return (
     <Card>
       <StepTitle step="②" title="민원 분류" />
+      <View style={styles.categoryRow}>
+        <Text style={styles.label}>분야</Text>
+        <Text style={styles.categoryValue}>{formatCategory(classification)}</Text>
+      </View>
       <View style={styles.grid}>
-        <View style={styles.cell}>
-          <Text style={styles.label}>담당 부서</Text>
-          <Text style={styles.value}>{부서}</Text>
-        </View>
         <View style={styles.cell}>
           <Text style={styles.label}>유형</Text>
           <Text style={styles.value}>{유형}</Text>
@@ -221,7 +221,7 @@ export function FieldChecksCard({ checks, guideMessage, onApply, disabled }) {
 // ⑤ 접수 결과
 export function ReceiptCard({ receipt, speaker }) {
   const meta = RECEIPT_STATUS_META[receipt.status] ?? { label: receipt.status, color: colors.text, bg: '#F3F4F6' };
-  const spoken = `접수번호 ${receipt.receipt_no.split('').map((ch) => (ch === '-' ? ',' : ch)).join(' ')}. ${receipt.department} 부서로 ${meta.label}. ${receipt.message ?? ''}`;
+  const spoken = `접수번호 ${receipt.receipt_no.split('').map((ch) => (ch === '-' ? ',' : ch)).join(' ')}. ${receipt.department} 분야로 ${meta.label}. ${receipt.message ?? ''}`;
   return (
     <Card style={styles.receipt}>
       <StepTitle
@@ -232,7 +232,7 @@ export function ReceiptCard({ receipt, speaker }) {
       <Text style={styles.label}>접수번호</Text>
       <Text style={styles.receiptNo} selectable>{receipt.receipt_no}</Text>
       <View style={styles.receiptRow}>
-        <Text style={styles.label}>배정 부서</Text>
+        <Text style={styles.label}>배정 분야</Text>
         <Text style={styles.value}>{receipt.department}</Text>
       </View>
       <View style={styles.receiptRow}>
@@ -289,6 +289,8 @@ const styles = StyleSheet.create({
   urgentText: { fontSize: 13, color: '#7F1D1D', marginTop: 4, lineHeight: 19 },
   urgentRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
 
+  categoryRow: { backgroundColor: '#EFF6FF', borderRadius: 8, padding: 10, marginBottom: 8 },
+  categoryValue: { fontSize: 16, fontWeight: 'bold', color: '#1E40AF', marginTop: 2 },
   grid: { flexDirection: 'row', gap: 8 },
   cell: { flex: 1, backgroundColor: '#F9FAFB', borderRadius: 8, padding: 10 },
   summary: { marginTop: 10, backgroundColor: '#F9FAFB', borderRadius: 8, padding: 10 },

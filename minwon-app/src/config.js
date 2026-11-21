@@ -12,11 +12,19 @@ export const LANGUAGES = [
 ];
 export const getLanguage = (code) => LANGUAGES.find((l) => l.code === code) ?? LANGUAGES[0];
 
-// 분류 기준: 부서 8개 / 유형 4개 / 긴급도 2단계(긴급·일반)
-export const DEPARTMENTS = [
-  '교통·주차', '도로·시설물', '환경·청소', '건축·주택',
-  '복지·보건', '세무·재정', '안전·재난', '일반행정',
+// 분류 기준: 분야 8개(HCX 튜닝 모델) / 유형 4개 / 긴급도 2단계(긴급·일반)
+// classification.분야 ← 서버 service_category, classification.세부유형 ← 서버 category_name
+export const SERVICE_CATEGORIES = [
+  '교통·자동차', '도로·안전시설', '건축·토지', '환경·위생',
+  '산림·농업', '복지·보건', '세무·행정', '경제·문화',
 ];
+
+// 화면 표시용: "교통·자동차 > 자동차" (세부 유형이 없으면 분야만)
+export const formatCategory = (classification) => {
+  const { 분야, 세부유형 } = classification ?? {};
+  if (!분야) return 세부유형 ?? '';
+  return 세부유형 ? `${분야} > ${세부유형}` : 분야;
+};
 
 export const COMPLAINT_TYPES = {
   신고: '문제가 생겨 조치를 요청',

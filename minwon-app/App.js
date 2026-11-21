@@ -3,7 +3,7 @@ import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View 
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
-import { LANGUAGES, getLanguage, isUrgent } from './src/config';
+import { LANGUAGES, formatCategory, getLanguage, isUrgent } from './src/config';
 import { SAMPLES } from './src/mock';
 import { analyzeComplaint, submitComplaint } from './src/api';
 import { useSpeaker } from './src/hooks/useSpeaker';
@@ -235,7 +235,7 @@ export default function App() {
                 <Card>
                   <StepTitle step="⑤" title="접수하기" />
                   <Text style={styles.body}>
-                    위 분류와 답변 초안으로 민원을 접수합니다. 접수번호가 발급되고 {analysis.classification?.부서} 부서로 배정됩니다.
+                    위 분류와 답변 초안으로 민원을 접수합니다. 접수번호가 발급되고 {analysis.classification?.분야} 분야 담당으로 배정됩니다.
                   </Text>
                   {urgent && (
                     <Text style={styles.urgentNote}>긴급 민원은 자동 처리하지 않고 담당자가 확인한 뒤 처리합니다.</Text>
@@ -250,7 +250,7 @@ export default function App() {
                 </Card>
               )}
 
-              <ChannelCard channel={analysis.official_channel} department={analysis.classification?.부서} />
+              <ChannelCard channel={analysis.official_channel} department={formatCategory(analysis.classification)} />
 
               <Button title="새 민원 작성" variant="outline" onPress={reset} style={{ marginTop: 16 }} />
             </View>
