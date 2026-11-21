@@ -12,7 +12,7 @@ export const LANGUAGES = [
 ];
 export const getLanguage = (code) => LANGUAGES.find((l) => l.code === code) ?? LANGUAGES[0];
 
-// 분류 기준: 부서 8개 / 유형 4개 / 긴급도 3단계
+// 분류 기준: 부서 8개 / 유형 4개 / 긴급도 2단계(긴급·일반)
 export const DEPARTMENTS = [
   '교통·주차', '도로·시설물', '환경·청소', '건축·주택',
   '복지·보건', '세무·재정', '안전·재난', '일반행정',
@@ -26,10 +26,10 @@ export const COMPLAINT_TYPES = {
 };
 
 export const URGENCY_META = {
-  상: { label: '긴급도 상', desc: '생명·안전에 바로 위험', color: '#B91C1C', bg: '#FEE2E2' },
-  중: { label: '긴급도 중', desc: '일상 불편이 계속됨', color: '#B45309', bg: '#FEF3C7' },
-  하: { label: '긴급도 하', desc: '당장 조치 필요 없음', color: '#1D4ED8', bg: '#DBEAFE' },
+  긴급: { desc: '생명·안전에 바로 위험', color: '#B91C1C', bg: '#FEE2E2' },
+  일반: { desc: '당장 위험하지는 않음', color: '#1D4ED8', bg: '#DBEAFE' },
 };
+export const isUrgent = (classification) => classification?.긴급도 === '긴급';
 
 // 답변 초안 ↔ 규정 모순 검사 결과
 export const CONSISTENCY_META = {

@@ -3,7 +3,7 @@ import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View 
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
-import { LANGUAGES, getLanguage } from './src/config';
+import { LANGUAGES, getLanguage, isUrgent } from './src/config';
 import { SAMPLES } from './src/mock';
 import { analyzeComplaint, submitComplaint } from './src/api';
 import { useSpeaker } from './src/hooks/useSpeaker';
@@ -40,7 +40,7 @@ export default function App() {
   const ocrBusy = photos.some((p) => p.status === 'loading');
   const inputBusy = voiceBusy || ocrBusy;
   const stale = !!analysis && (analyzedInput?.text !== text.trim() || analyzedInput?.lang !== lang);
-  const urgent = analysis?.classification?.긴급도 === '상';
+  const urgent = isUrgent(analysis?.classification);
 
   const stage = receipt ? 5 : analysis ? 3 : 0;
 
@@ -51,8 +51,18 @@ export default function App() {
       return (base ? `${base}\n${t}` : t).slice(0, MAX_TEXT);
     });
 
-  const handleAnalyze = async () => {
-    const input = text.trim();
+  // 필수 정보 점검에서 입력한 보완 내용을 민원 입력창에 반영 (선택: 바로 다시 분석)
+  const applySupplement = (lines, reanalyze) => {
+    if (!lines.length) return;
+    const base = text.trim();
+    const next = [base, ...lines].filter(Boolean).join('\n').slice(0, MAX_TEXT);
+    setText(next);
+    if (reanalyze) handleAnalyze(next);
+    else scrollRef.current?.scrollTo({ y: 0, animated: true });
+  };
+
+  const handleAnalyze = async (override) => {
+    const input = (typeof override === 'string' ? override : text).trim();
     if (!input) {
       Alert.alert('알림', '민원 내용을 입력하거나 음성·문서 사진으로 추가해 주세요.');
       return;
@@ -104,7 +114,12 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="dark" />
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
+        >
           <Text style={styles.header}>AI 민원 창구</Text>
           <Text style={styles.subHeader}>
             글·음성·사진·외국어로 민원을 넣으면 AI가 분류하고, 규정에 맞는 답변 초안을 만들어 접수까지 도와드립니다.
@@ -185,7 +200,7 @@ export default function App() {
 
           <Button
             title={analysis && !stale ? '다시 분석하기' : 'AI 분석 받기'}
-            onPress={handleAnalyze}
+            onPress={() => handleAnalyze()}
             loading={analyzing}
             disabled={inputBusy || !text.trim()}
             style={{ marginTop: 14 }}
@@ -205,7 +220,13 @@ export default function App() {
               {urgent && <UrgentBanner />}
               <ClassificationCard classification={analysis.classification} />
               <AnswerCard key={analysisId} analysis={analysis} lang={analyzedInput.lang} speaker={speaker} />
-              <FieldChecksCard checks={analysis.field_checks} guideMessage={analysis.guide_message} />
+              <FieldChecksCard
+                key={`checks-${analysisId}`}
+                checks={analysis.field_checks}
+                guideMessage={analysis.guide_message}
+                onApply={applySupplement}
+                disabled={analyzing || !!receipt}
+              />
 
               {/* ⑤ 접수 */}
               {receipt ? (

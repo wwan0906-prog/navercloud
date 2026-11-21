@@ -1,3 +1,5 @@
+import { isUrgent } from './config';
+
 // 목업 데이터: 서버 연결 전 화면 개발·시연용 예시입니다.
 // 규정 근거·접수처 정보는 실제 출처가 아니므로 발표 자료에 그대로 쓰지 마세요.
 
@@ -26,7 +28,7 @@ const EXAMPLE_CHANNEL = {
 
 const STREETLIGHT = {
   translated_text: null,
-  classification: { 부서: '도로·시설물', 유형: '신고', 긴급도: '중', 요약: '골목 가로등이 어제부터 꺼져 야간 통행이 위험함' },
+  classification: { 부서: '도로·시설물', 유형: '신고', 긴급도: '일반', 요약: '골목 가로등이 어제부터 꺼져 야간 통행이 위험함' },
   answer_draft:
     '불편을 드려 죄송합니다. 접수하신 가로등 고장 건은 현장 확인 후 보수할 예정입니다. 정확한 위치(도로명 주소나 주변 건물명)를 알려 주시면 더 빠르게 처리할 수 있습니다.',
   answer_translated: null,
@@ -46,7 +48,7 @@ const STREETLIGHT = {
 
 const PARKING = {
   translated_text: null,
-  classification: { 부서: '교통·주차', 유형: '신고', 긴급도: '중', 요약: '상가 앞 불법 주정차로 통행 불편이 계속됨' },
+  classification: { 부서: '교통·주차', 유형: '신고', 긴급도: '일반', 요약: '상가 앞 불법 주정차로 통행 불편이 계속됨' },
   answer_draft:
     '불법 주정차로 불편을 겪고 계셔서 죄송합니다. 해당 구역은 단속 요청으로 접수되며, 정확한 위치와 주로 발생하는 시간대를 알려 주시면 단속에 도움이 됩니다.',
   answer_translated: null,
@@ -66,7 +68,7 @@ const PARKING = {
 
 const GAS = {
   translated_text: null,
-  classification: { 부서: '안전·재난', 유형: '신고', 긴급도: '상', 요약: '아파트 1층 복도에서 가스 냄새가 계속 남' },
+  classification: { 부서: '안전·재난', 유형: '신고', 긴급도: '긴급', 요약: '아파트 1층 복도에서 가스 냄새가 계속 남' },
   answer_draft:
     '가스 냄새는 즉시 대응이 필요한 위험 상황입니다. 불을 켜거나 끄지 말고 창문을 연 뒤 건물 밖으로 대피하시고, 119에 바로 신고해 주세요. 접수된 민원은 담당자가 확인한 뒤 처리합니다.',
   answer_translated: null,
@@ -85,7 +87,7 @@ const GAS = {
 
 const TRASH_EN = {
   translated_text: '아파트 앞에 쓰레기봉투가 3일째 쌓여 있는데 아무도 수거하지 않았습니다.',
-  classification: { 부서: '환경·청소', 유형: '신고', 긴급도: '중', 요약: '아파트 앞 쓰레기봉투가 3일째 수거되지 않음' },
+  classification: { 부서: '환경·청소', 유형: '신고', 긴급도: '일반', 요약: '아파트 앞 쓰레기봉투가 3일째 수거되지 않음' },
   answer_draft:
     '쓰레기 미수거로 불편을 드려 죄송합니다. 해당 지역 수거 업체에 확인해 빠르게 수거하도록 조치하겠습니다. 정확한 주소를 알려 주시면 더 빨리 처리할 수 있습니다.',
   answer_translated:
@@ -121,7 +123,7 @@ export function mockSubmit(analysis) {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
   const seq = String(Math.floor(Math.random() * 9000) + 1000);
-  const urgent = analysis.classification?.긴급도 === '상';
+  const urgent = isUrgent(analysis.classification);
   return {
     receipt_no: `MW-${ymd}-${seq}`,
     department: analysis.classification?.부서,

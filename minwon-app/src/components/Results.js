@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import {
   COMPLAINT_TYPES, CONSISTENCY_META, FIELD_STATUS_META, FIELD_STATUS_ORDER,
   RECEIPT_STATUS_META, URGENCY_META, getLanguage,
@@ -132,12 +132,24 @@ export function AnswerCard({ analysis, lang, speaker }) {
 }
 
 // 필수 정보 점검 (누락·불충분 항목 + 보완 안내)
-export function FieldChecksCard({ checks, guideMessage }) {
+// 보완이 필요한 항목마다 입력칸을 두고, 입력한 내용을 민원 입력창에 이어 붙임
+const needsSupplement = (c) => c.status === 'missing' || c.status === 'insufficient';
+
+export function FieldChecksCard({ checks, guideMessage, onApply, disabled }) {
+  const [values, setValues] = useState({});
   if (!checks?.length && !guideMessage) return null;
   const sorted = [...(checks ?? [])].sort(
     (a, b) => (FIELD_STATUS_ORDER[a.status] ?? 9) - (FIELD_STATUS_ORDER[b.status] ?? 9)
   );
-  const needsFix = sorted.filter((c) => c.status === 'missing' || c.status === 'insufficient').length;
+  const needsFix = sorted.filter(needsSupplement).length;
+  const filled = sorted.filter((c) => needsSupplement(c) && values[c.key]?.trim());
+
+  const apply = (reanalyze) => {
+    const lines = filled.map((c) => `${c.label}: ${values[c.key].trim()}`);
+    onApply(lines, reanalyze);
+    setValues({});
+  };
+
   return (
     <Card>
       <StepTitle
@@ -161,6 +173,17 @@ export function FieldChecksCard({ checks, guideMessage }) {
             </View>
             {c.evidence && !muted ? <Text style={styles.muted}>원문: “{c.evidence}”</Text> : null}
             {c.suggestion && !muted ? <Text style={styles.suggestion}>→ {c.suggestion}</Text> : null}
+            {needsSupplement(c) && onApply ? (
+              <TextInput
+                style={styles.supplementInput}
+                placeholder={`${c.label} 보완 내용 입력`}
+                placeholderTextColor="#9CA3AF"
+                value={values[c.key] ?? ''}
+                onChangeText={(v) => setValues((prev) => ({ ...prev, [c.key]: v }))}
+                editable={!disabled}
+                multiline
+              />
+            ) : null}
           </View>
         );
       })}
@@ -169,7 +192,28 @@ export function FieldChecksCard({ checks, guideMessage }) {
           <Text style={styles.guideText}>{guideMessage}</Text>
         </View>
       ) : null}
-      {needsFix ? <Text style={styles.hint}>위 내용을 입력창에 보완한 뒤 다시 분석하면 더 정확해집니다.</Text> : null}
+      {needsFix && onApply ? (
+        <>
+          <Text style={styles.hint}>
+            입력한 내용은 “항목: 내용” 형태로 민원 입력창 끝에 추가됩니다. 다시 분석하면 결과가 더 정확해집니다.
+          </Text>
+          <View style={styles.applyRow}>
+            <Button
+              title="민원에 반영"
+              variant="outline"
+              style={{ flex: 1 }}
+              disabled={disabled || !filled.length}
+              onPress={() => apply(false)}
+            />
+            <Button
+              title="반영하고 다시 분석"
+              style={{ flex: 1.4 }}
+              disabled={disabled || !filled.length}
+              onPress={() => apply(true)}
+            />
+          </View>
+        </>
+      ) : null}
     </Card>
   );
 }
@@ -177,7 +221,7 @@ export function FieldChecksCard({ checks, guideMessage }) {
 // ⑤ 접수 결과
 export function ReceiptCard({ receipt, speaker }) {
   const meta = RECEIPT_STATUS_META[receipt.status] ?? { label: receipt.status, color: colors.text, bg: '#F3F4F6' };
-  const spoken = `접수번호 ${receipt.receipt_no.split('').map((ch) => (ch === '-' ? ',' : ch)).join(' ')}.${receipt.department} 부서로 ${meta.label}. ${receipt.message ?? ''}`;
+  const spoken = `접수번호 ${receipt.receipt_no.split('').map((ch) => (ch === '-' ? ',' : ch)).join(' ')}. ${receipt.department} 부서로 ${meta.label}. ${receipt.message ?? ''}`;
   return (
     <Card style={styles.receipt}>
       <StepTitle
@@ -267,6 +311,11 @@ const styles = StyleSheet.create({
   fieldHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   fieldLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.text },
   suggestion: { fontSize: 13, color: '#B45309', marginTop: 3, lineHeight: 18 },
+  supplementInput: {
+    marginTop: 6, borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, color: colors.text, minHeight: 40, textAlignVertical: 'top',
+  },
+  applyRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
   guide: { backgroundColor: '#F0FDF4', padding: 12, borderRadius: 8, marginTop: 10 },
   guideText: { fontSize: 14, color: '#166534', lineHeight: 20 },
 
