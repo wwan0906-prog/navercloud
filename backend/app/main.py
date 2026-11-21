@@ -49,6 +49,29 @@ def health():
             'categories': [c['id'] for c in db.list_categories()]}
 
 
+# ---------------------------------------------------------------- 입력 보조: 사진·음성 → 글자
+@api.post('/ocr')
+def ocr(image: UploadFile = File(...)):
+    """문서 사진 한 장 → 글자 (CLOVA OCR). 앱의 recognizeImage()"""
+    try:
+        return {'text': clova_io.extract_text(image.file.read(), image.filename or 'image.jpg')}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except RuntimeError as e:
+        raise HTTPException(502, str(e))
+
+
+@api.post('/stt')
+def stt(audio: UploadFile = File(...), lang: str = Form('ko')):
+    """녹음 파일(60초 이하, m4a 등) → 글자 (CLOVA Speech Recognition). 앱의 transcribeAudio()"""
+    try:
+        return {'text': clova_io.transcribe_audio(audio.file.read(), lang), 'lang': lang}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except RuntimeError as e:
+        raise HTTPException(502, str(e))
+
+
 # ---------------------------------------------------------------- 분석 (메인)
 @api.post('/analyze')
 def analyze(complaint_text: str = Form(''), files: Optional[List[UploadFile]] = File(None)):
@@ -87,7 +110,8 @@ def analyze(complaint_text: str = Form(''), files: Optional[List[UploadFile]] = 
 
     # 4. 판정 · 안내문 · 접수 채널
     checks = rules.check_fields(category['fields'] if category else [],
-                                extracted.get('fields'), extracted.get('not_applicable'))
+                                extracted.get('fields'), extracted.get('not_applicable'),
+                                extracted.get('insufficient'), source_text=text)
     complete = bool(checks) and rules.is_complete(checks)
     message = extracted.get('guide_message') or guide.compose_message(category, cls['category'], checks, complete)
     channel = (category or {}).get('official_channel') or db.default_channel()
@@ -96,6 +120,8 @@ def analyze(complaint_text: str = Form(''), files: Optional[List[UploadFile]] = 
     result = {
         # ---- 프론트엔드 약속안 필드
         'main_category': cls['category'],
+        # 화면 표시용 8개 서비스 분야 (튜닝 모델 결과. mock 이면 mapping.json 으로 계산)
+        'service_category': cls.get('service_category') or ai_client.service_of(cls['category']),
         'field_checks': [{k: c[k] for k in ('key', 'label', 'status', 'evidence', 'suggestion')}
                          for c in checks],
         'guide_message': message,

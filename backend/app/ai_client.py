@@ -1,4 +1,4 @@
-"""AI 호출 연결 지점: 2번 팀원 담당 (아직 없음)
+"""AI 호출 연결 지점: 2번 팀원 담당 — app/hcx.py 로 연결됨 (AI_MODE=real)
 
 백엔드는 아래 두 함수만 부릅니다. 2번 팀원은 _real_classify / _real_extract 만 채우면 됩니다.
 
@@ -30,8 +30,10 @@
 """
 from __future__ import annotations
 
+import json
 import os
 import re
+from pathlib import Path
 
 
 class AINotReady(RuntimeError):
@@ -54,6 +56,19 @@ def normalize_category(label, valid_ids) -> str:
     return found[0] if len(found) == 1 else text
 
 
+_MAPPING_PATH = Path(__file__).resolve().parent.parent / 'data' / 'hcx' / 'mapping.json'
+
+
+def service_of(category: str) -> str | None:
+    """AI Hub 유형(18개) → 서비스 분야(8개, 튜닝 모델 라벨). data/hcx/mapping.json 기준. 없으면 None.
+    화면에는 8개 분야를, 필수 정보 판정·접수 채널에는 18개 유형을 씁니다 (2번 팀원 category-mapping.md)."""
+    try:
+        mapping = json.loads(_MAPPING_PATH.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    return next((svc for svc, cats in mapping.items() if category in cats), None)
+
+
 def mode() -> str:
     return os.environ.get('AI_MODE', 'mock').strip().lower()
 
@@ -66,13 +81,24 @@ def extract(text: str, category: dict) -> dict:
     return _real_extract(text, category) if mode() == 'real' else _mock_extract(text, category)
 
 
-# ---------------------------------------------------------------- 실제 호출 (2번 팀원이 채울 곳)
+# ---------------------------------------------------------------- 실제 호출 (2번 팀원: app/hcx.py)
+# 흐름: 튜닝 모델(8개 서비스 분야) → 프롬프트(그 분야에 속한 AI Hub 대분류 중 선택, 신고/문의 판별) → 프롬프트(항목별 추출·판정)
+# 분류 결과의 intent(신고/문의)를 추출 프롬프트에 넘기려고 마지막 분류 결과를 잠시 들고 있습니다.
+_last_intent: dict[str, str] = {}
+
+
 def _real_classify(text: str) -> dict:
-    raise AINotReady('분류(HCX 튜닝 모델) 연결 전입니다. .env 에서 AI_MODE=mock 으로 테스트하세요.')
+    from . import hcx
+    res = hcx.classify(text)
+    _last_intent[text] = res.get('intent', '신고')
+    if len(_last_intent) > 200:          # 메모리 보호
+        _last_intent.pop(next(iter(_last_intent)))
+    return res
 
 
 def _real_extract(text: str, category: dict) -> dict:
-    raise AINotReady('정보 추출(HCX Prompt) 연결 전입니다. .env 에서 AI_MODE=mock 으로 테스트하세요.')
+    from . import hcx
+    return hcx.extract(text, category, _last_intent.get(text, '신고'))
 
 
 # ---------------------------------------------------------------- 가짜 응답 (개발용)

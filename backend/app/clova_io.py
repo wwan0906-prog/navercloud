@@ -1,8 +1,9 @@
-"""CLOVA 입출력: OCR(민원 사진 → 텍스트), Voice(가이드 → 음성)
+"""CLOVA 입출력: OCR(민원 사진 → 텍스트), CSR(음성 → 텍스트), Voice(가이드 → 음성)
 
     extract_text(image_bytes, filename)  이미지 → 민원 텍스트 (CLOVA OCR General)
     normalize_input(text=None, image_bytes=None, filename=None)
                                          텍스트/이미지 중 들어온 것을 {"text", "source"}로 통일
+    transcribe_audio(audio_bytes, lang)  녹음(60초 이하) → 텍스트 (CLOVA Speech Recognition)
     synthesize_speech(text, speaker=...) 가이드 텍스트 → mp3 bytes (CLOVA Voice)
 
 키는 backend/.env 에서 읽습니다 (.env.example 참고).
@@ -35,6 +36,9 @@ def _load_env(path: Path) -> None:
 _load_env(MODULE_DIR.parent / '.env')
 
 VOICE_URL = 'https://naveropenapi.apigw.ntruss.com/tts-premium/v1/tts'
+CSR_URL = 'https://naveropenapi.apigw.ntruss.com/recog/v1/stt'
+# 앱 언어 코드 → CSR 언어 코드 (CSR 이 지원하는 4개만)
+CSR_LANGS = {'ko': 'Kor', 'en': 'Eng', 'ja': 'Jpn', 'zh-CN': 'Chn', 'zh': 'Chn'}
 OCR_FORMATS = {'jpg', 'jpeg', 'png', 'pdf', 'tif', 'tiff'}
 TTS_MAX_CHARS = 1000          # 한 번 요청에 보낼 최대 글자 수 (길면 문장 단위로 나눠 보냄)
 
@@ -111,6 +115,26 @@ def normalize_input(text: str | None = None, image_bytes: bytes | None = None,
             raise ValueError('이미지에서 글자를 찾지 못했습니다.')
         return {'text': extracted, 'source': 'ocr'}
     raise ValueError('민원 텍스트나 이미지 중 하나는 있어야 합니다.')
+
+
+# ---------------------------------------------------------------- 입력: 음성 (CSR)
+def transcribe_audio(audio_bytes: bytes, lang: str = 'ko') -> str:
+    """CLOVA Speech Recognition(짧은 문장, 60초 이하)으로 녹음을 글자로 바꿉니다.
+    AITEST 앱 키(Voice 와 같은 키)를 씁니다. m4a(AAC)·mp3·wav 등을 그대로 보내면 됩니다."""
+    csr_lang = CSR_LANGS.get(lang)
+    if csr_lang is None:
+        raise ValueError(f'음성 입력을 지원하지 않는 언어입니다: {lang} (가능: ko, en, ja, zh-CN)')
+    if not audio_bytes:
+        raise ValueError('녹음 파일이 비어 있습니다.')
+    headers = {
+        'X-NCP-APIGW-API-KEY-ID': _env('CLOVA_VOICE_CLIENT_ID'),
+        'X-NCP-APIGW-API-KEY': _env('CLOVA_VOICE_CLIENT_SECRET'),
+        'Content-Type': 'application/octet-stream',
+    }
+    res = requests.post(CSR_URL, params={'lang': csr_lang}, headers=headers, data=audio_bytes, timeout=60)
+    if res.status_code != 200:
+        raise RuntimeError(f'CLOVA Speech Recognition {res.status_code}: {res.text[:300]}')
+    return res.json().get('text', '').strip()
 
 
 # ---------------------------------------------------------------- 출력: TTS

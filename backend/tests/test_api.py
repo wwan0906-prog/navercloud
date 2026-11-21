@@ -63,7 +63,7 @@ def test_streetlight_matches_frontend_mock(client):
     loc = next(c for c in body['field_checks'] if c['key'] == 'location')
     assert loc['evidence'] == '집 앞 골목' and '도로명 주소' in loc['suggestion']
     assert set(body['field_checks'][0]) == {'key', 'label', 'status', 'evidence', 'suggestion'}
-    assert body['official_channel'] == {'agency': '국민신문고', 'url': 'https://www.epeople.go.kr', 'phone': '110'}
+    assert body['official_channel']['agency'] == '안전신문고'          # 분야별 채널 적용 (guide_seed official_channel)
     assert '발생 위치, 요청 조치를 보완해 주세요' in body['guide_message']
     assert body['is_complete'] is False
 
@@ -127,6 +127,9 @@ def test_too_many_photos(client):
 
 def test_ai_not_ready(client, monkeypatch):
     monkeypatch.setenv('AI_MODE', 'real')
+    # .env 에 HCX 키가 있어도 '키 없음' 상황을 만들어서 실제 HCX 를 부르지 않게 함
+    monkeypatch.delenv('CLOVASTUDIO_API_KEY', raising=False)
+    monkeypatch.delenv('NCP_CLOVASTUDIO_API_KEY', raising=False)
     r = analyze(client, '민원')
     assert r.status_code == 503 and '연결 전' in r.json()['detail']
 
@@ -244,3 +247,83 @@ def test_analyze_normalizes_tuned_model_label(client, monkeypatch):
     monkeypatch.setattr(ai_client, 'classify', lambda t: {'category': ' "교통"\n', 'confidence': None})
     body = analyze(client, PARKING).json()
     assert body['main_category'] == '교통' and body['has_guide_data'] is True
+
+
+# ---------------------------------------------------------------- 사진·음성 → 글자
+def test_ocr(client):
+    r = client.post('/api/ocr', files={'image': ('a.png', '민원 신청서'.encode(), 'image/png')})
+    assert r.status_code == 200 and r.json() == {'text': '민원 신청서'}
+    assert client.post('/api/ocr', files={'image': ('a.gif', b'x', 'image/gif')}).status_code == 400
+    assert client.post('/api/ocr').status_code == 422
+
+
+def test_stt(client, monkeypatch):
+    seen = {}
+
+    def fake_stt(data, lang='ko'):
+        seen.update(data=data, lang=lang)
+        return '가로등이 고장났어요'
+    monkeypatch.setattr(clova_io, 'transcribe_audio', fake_stt)
+    r = client.post('/api/stt', files={'audio': ('voice.m4a', b'm4a-bytes', 'audio/m4a')}, data={'lang': 'en'})
+    assert r.status_code == 200 and r.json() == {'text': '가로등이 고장났어요', 'lang': 'en'}
+    assert seen == {'data': b'm4a-bytes', 'lang': 'en'}
+
+
+def test_stt_unsupported_language(client):
+    r = client.post('/api/stt', files={'audio': ('v.m4a', b'x', 'audio/m4a')}, data={'lang': 'vi'})
+    assert r.status_code == 400 and 'vi' in r.json()['detail']
+
+
+# ---------------------------------------------------------------- AI 판정과 합치기
+def test_ai_insufficient_is_respected(client, monkeypatch):
+    """AI 가 불충분으로 본 항목은 백엔드 규칙상 통과해도 불충분"""
+    monkeypatch.setattr(ai_client, 'extract', lambda t, c: {
+        'fields': {'facility_or_work': '가로등', 'location': '세종대로 209', 'risk_status': '어제부터 안 켜짐',
+                   'request': '수리'}, 'insufficient': ['facility_or_work']})
+    body = analyze(client, '세종대로 209 가로등이 어제부터 안 켜짐. 수리 부탁').json()
+    assert status_of(body)['facility_or_work'] == 'insufficient'
+    assert status_of(body)['location'] == 'sufficient'
+
+
+def test_made_up_evidence_is_not_sufficient(client, monkeypatch):
+    """원문에 없는 구절(지어낸 요청)은 충족으로 인정하지 않고, 원문으로 표시하지도 않음"""
+    monkeypatch.setattr(ai_client, 'classify', lambda t: {'category': '교통', 'confidence': None})
+    monkeypatch.setattr(ai_client, 'extract', lambda t, c: {'fields': {
+        'traffic_target': '불법 주정차 차량', 'location_or_route': '세종대로 209 앞',
+        'issue_details': '세워져 있어 통행이 어렵습니다', 'request': '불법 주정차 차량 이동 조치 요청'}})
+    body = analyze(client, '세종대로 209 앞에 불법 주정차 차량이 계속 세워져 있어 통행이 어렵습니다.').json()
+    req = next(c for c in body['field_checks'] if c['key'] == 'request')
+    assert req['status'] == 'insufficient' and req['evidence'] is None and req['suggestion']
+    assert status_of(body)['traffic_target'] == 'sufficient'
+    assert body['is_complete'] is False
+
+
+@pytest.mark.parametrize('value, text, grounded', [
+    ('불법 주정차 차량 이동 조치 요청', '상가 앞에 불법 주정차 차량이 계속 세워져 있어 통행이 어렵습니다.', False),
+    ('재발급 방법 문의', '재산세 고지서를 잃어버렸는데 어떻게 다시 받을 수 있나요?', False),
+    ('수거 지연', '음식물 쓰레기통이 3일째 수거가 안 돼서 냄새가 심해요.', True),
+    ('고지서 분실', '재산세 고지서를 잃어버렸는데 어떻게 다시 받을 수 있나요?', True),
+    ('상가 앞 불법 주정차 차량', '상가 앞에 불법 주정차 차량이 계속 세워져 있어요', True),
+    ('아무거나', None, True),
+])
+def test_is_grounded(value, text, grounded):
+    assert rules.is_grounded(value, text) is grounded
+
+
+# ---------------------------------------------------------------- 8개 서비스 분야
+def test_service_category_in_response(client):
+    assert analyze(client, PARKING).json()['service_category'] == '교통·자동차'
+    assert analyze(client, STREETLIGHT).json()['service_category'] == '도로·안전시설'
+
+
+def test_service_category_from_tuned_model(client, monkeypatch):
+    monkeypatch.setattr(ai_client, 'classify',
+                        lambda t: {'category': '산림', 'confidence': None, 'service_category': '산림·농업'})
+    assert analyze(client, '놀이터 그네가 끊어졌어요').json()['service_category'] == '산림·농업'
+
+
+def test_service_of_covers_all_18():
+    seed = json.loads(open('data/guide_seed.json', encoding='utf-8').read())
+    services = {ai_client.service_of(c['id']) for c in seed['categories']}
+    assert None not in services and len(services) == 8
+    assert ai_client.service_of('없는분야') is None
