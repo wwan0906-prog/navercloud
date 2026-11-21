@@ -3,7 +3,10 @@
 백엔드는 아래 두 함수만 부릅니다. 2번 팀원은 _real_classify / _real_extract 만 채우면 됩니다.
 
     classify(text) -> {"category": str, "confidence": float | None}
-        HCX + RAG: 민원 18개 대분류 중 하나로 분류. (파인튜닝 대신 RAG 사용으로 변경)
+        HCX 튜닝 모델: 민원 18개 대분류 중 하나로 분류.
+        튜닝 모델 호출: POST https://clovastudio.stream.ntruss.com/v2/tasks/{taskId}/chat-completions
+                      (Authorization: Bearer {CLOVASTUDIO_API_KEY}, .env 의 HCX_TUNING_TASK_ID)
+        모델 출력에 따옴표·공백·가운뎃점이 섞여도 백엔드가 normalize_category() 로 라벨을 맞춥니다.
         "category" 는 data/guide_seed.json 의 categories[].id 와 같은 문자열이어야 합니다.
         (AI Hub 대분류 그대로: 자동차, 안전건설, 교통, ..., 문화_체육_관광, 농업_축산 ...)
 
@@ -35,6 +38,22 @@ class AINotReady(RuntimeError):
     """AI_MODE=real 인데 아직 실제 호출 코드가 연결되지 않았을 때."""
 
 
+def normalize_category(label, valid_ids) -> str:
+    """튜닝 모델이 낸 라벨을 DB 의 대분류 id 로 맞춥니다. 못 맞추면 정리한 문자열을 그대로 돌려줍니다.
+    예: ' "교통" ' → 교통 / '문화·체육·관광' → 문화_체육_관광 / '분류: 세무' → 세무"""
+    text = str(label or '').strip().strip('"\'`[](){}<>.。 ')
+    if text.startswith('분류:') or text.startswith('대분류:'):
+        text = text.split(':', 1)[1].strip()
+    if text in valid_ids:
+        return text
+    key = re.sub(r'[\s·ㆍ,/_-]+', '_', text).strip('_')
+    for vid in valid_ids:
+        if key == vid or key.replace('_', '') == vid.replace('_', ''):
+            return vid
+    found = [vid for vid in valid_ids if vid in text]       # 문장 속에 라벨이 하나만 들어 있는 경우
+    return found[0] if len(found) == 1 else text
+
+
 def mode() -> str:
     return os.environ.get('AI_MODE', 'mock').strip().lower()
 
@@ -49,7 +68,7 @@ def extract(text: str, category: dict) -> dict:
 
 # ---------------------------------------------------------------- 실제 호출 (2번 팀원이 채울 곳)
 def _real_classify(text: str) -> dict:
-    raise AINotReady('분류(HCX + RAG) 연결 전입니다. .env 에서 AI_MODE=mock 으로 테스트하세요.')
+    raise AINotReady('분류(HCX 튜닝 모델) 연결 전입니다. .env 에서 AI_MODE=mock 으로 테스트하세요.')
 
 
 def _real_extract(text: str, category: dict) -> dict:

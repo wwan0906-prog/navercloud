@@ -228,3 +228,19 @@ def test_seed_matches_requirements():
     for cat in seed['categories']:
         expected = [pick(f) for f in req['categories'][cat['id']]['required_fields']]
         assert [pick(f) for f in cat['fields']] == expected, cat['id']
+
+
+@pytest.mark.parametrize('raw, expected', [
+    ('교통', '교통'), (' "교통" ', '교통'), ('교통.', '교통'), ('분류: 세무', '세무'),
+    ('문화·체육·관광', '문화_체육_관광'), ('문화 체육 관광', '문화_체육_관광'), ('농업/축산', '농업_축산'),
+    ('이 민원은 상하수도 분야입니다', '상하수도'), ('없는분야', '없는분야'), (None, ''),
+])
+def test_normalize_category(raw, expected):
+    ids = ['교통', '세무', '문화_체육_관광', '농업_축산', '상하수도']
+    assert ai_client.normalize_category(raw, ids) == expected
+
+
+def test_analyze_normalizes_tuned_model_label(client, monkeypatch):
+    monkeypatch.setattr(ai_client, 'classify', lambda t: {'category': ' "교통"\n', 'confidence': None})
+    body = analyze(client, PARKING).json()
+    assert body['main_category'] == '교통' and body['has_guide_data'] is True

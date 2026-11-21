@@ -7,7 +7,7 @@ FastAPI + SQLite. 앱(`minwon-app`, React Native + Expo)이 부르는 API 서버
 
 | 항목 | 담당 | 상태 | 연결 위치 |
 |---|---|---|---|
-| HCX + RAG 분류 (18개 대분류) | 2번 팀원 | **아직 없음** | `app/ai_client.py` → `_real_classify()` |
+| HCX 튜닝 모델 분류 (18개 대분류) | 2번 팀원 | **아직 없음** | `app/ai_client.py` → `_real_classify()` |
 | HCX Prompt 정보 추출 | 2번 팀원 | **아직 없음** | `app/ai_client.py` → `_real_extract()` |
 | 분야별 공식 접수 채널 | 팀 | **미정** (지금은 전부 국민신문고) | `data/guide_seed.json` → `categories[].official_channel` |
 
@@ -20,7 +20,7 @@ backend/
 ├── app/
 │   ├── main.py        API (/api/analyze 등): 입력 검증 · 호출 · 결과 통합
 │   ├── clova_io.py    CLOVA OCR(사진 → 텍스트), CLOVA Voice(안내문 → 음성)
-│   ├── ai_client.py   HCX + RAG 연결 지점: 2번 팀원 담당 (아직 없음, 지금은 mock)
+│   ├── ai_client.py   HCX 연결 지점: 2번 팀원 담당 (아직 없음, 지금은 mock)
 │   ├── rules.py       Python Rule Engine: sufficient / insufficient / missing / not_applicable
 │   ├── guide.py       안내문(guide_message), 읽어주기 문장(guide_text) 조합
 │   └── db.py          SQLite: 가이드 DB 조회, 분석 기록 저장
@@ -96,7 +96,7 @@ complaint_text + files(사진 ≤ 5장)
 
 ```python
 def _real_classify(text: str) -> dict:
-    # HCX + RAG 호출
+    # HCX 튜닝 모델 호출 (아래 '튜닝 모델 호출' 참고)
     return {"category": "교통", "confidence": 0.93}
     #        ↑ guide_seed.json 의 categories[].id (AI Hub 대분류 18개) 중 하나, 글자 그대로
 
@@ -116,6 +116,25 @@ def _real_extract(text: str, category: dict) -> dict:
 - `when`이 없는 항목은 항상 필수라서 `not_applicable`에 넣어도 무시됩니다.
 - 충족·불충분·누락 판정은 백엔드(`rules.py`)가 합니다.
 - HCX 키는 `.env`에 추가하고 `os.environ`으로 읽어주세요.
+
+### 튜닝 모델 호출
+
+분류는 CLOVA Studio에서 튜닝한 HCX 모델을 씁니다. `.env`에 두 값을 넣어 주세요 (`.env.example` 참고).
+
+```
+CLOVASTUDIO_API_KEY=nv-...        # CLOVA Studio API 키
+HCX_TUNING_TASK_ID=...            # 튜닝 작업 ID (플레이그라운드 '코드 보기'의 URL에 들어 있음)
+```
+
+```python
+url = f"https://clovastudio.stream.ntruss.com/v2/tasks/{os.environ['HCX_TUNING_TASK_ID']}/chat-completions"
+headers = {"Authorization": f"Bearer {os.environ['CLOVASTUDIO_API_KEY']}", "Content-Type": "application/json"}
+body = {"messages": [{"role": "system", "content": "..."}, {"role": "user", "content": text}]}
+```
+
+- 튜닝 모델이 `"교통"`, `교통.`, `문화·체육·관광`, `분류: 세무`처럼 라벨에 따옴표·공백·가운뎃점을 섞어 내도, 백엔드가 `normalize_category()`로 18개 라벨 중 하나에 맞춥니다. 맞추지 못하면 그대로 두고, 이 경우 "안내 기준 없음"으로 응답합니다.
+- 튜닝할 때 학습 데이터의 정답 라벨은 **`guide_seed.json`의 `categories[].id`와 같은 글자**(AI Hub 대분류 그대로: `문화_체육_관광`, `농업_축산` 등)로 맞추는 게 가장 안전합니다.
+- v2 주소가 404면 `/v1/tasks/...`로 시도해 보세요 (수업 lab6의 `compare_tuning.py`도 v2 → v1 순서로 시도합니다).
 
 ## 가이드 데이터 수정 (`data/guide_seed.json`)
 

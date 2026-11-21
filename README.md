@@ -60,6 +60,6 @@ EXPO_PUBLIC_USE_MOCK=false
 | 앱 화면 (입력, 사진 첨부, 점검 결과, 접수 채널) | ✅ |
 | 백엔드 API, 문서 사진 OCR, 필수 정보 판정, 분석 기록, 읽어주기(TTS) | ✅ 배포됨 |
 | 18개 분야 필수 정보 항목 (`backend/data/category_requirements.json` 기준) | ✅ |
-| AI 분류·정보 추출 (HCX + RAG) | ⏳ 아직 없음 (지금은 mock) |
+| AI 분류(HCX 튜닝 모델)·정보 추출 | ⏳ 아직 없음 (지금은 mock) |
 | 분야별 공식 접수 채널 | ⏳ 미정 (지금은 전부 국민신문고 · 110) |
 | 앱의 읽어주기 버튼 | ⏳ 선택 (서버 API는 있음: `GET /api/complaints/{id}/audio`) |
