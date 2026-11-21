@@ -30,8 +30,10 @@
 """
 from __future__ import annotations
 
+import json
 import os
 import re
+from pathlib import Path
 
 
 class AINotReady(RuntimeError):
@@ -52,6 +54,19 @@ def normalize_category(label, valid_ids) -> str:
             return vid
     found = [vid for vid in valid_ids if vid in text]       # 문장 속에 라벨이 하나만 들어 있는 경우
     return found[0] if len(found) == 1 else text
+
+
+_MAPPING_PATH = Path(__file__).resolve().parent.parent / 'data' / 'hcx' / 'mapping.json'
+
+
+def service_of(category: str) -> str | None:
+    """AI Hub 유형(18개) → 서비스 분야(8개, 튜닝 모델 라벨). data/hcx/mapping.json 기준. 없으면 None.
+    화면에는 8개 분야를, 필수 정보 판정·접수 채널에는 18개 유형을 씁니다 (2번 팀원 category-mapping.md)."""
+    try:
+        mapping = json.loads(_MAPPING_PATH.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    return next((svc for svc, cats in mapping.items() if category in cats), None)
 
 
 def mode() -> str:
