@@ -3,15 +3,38 @@ venv/
 .venv/
 env/
 
-# API 키 등 환경변수 파일
+# API 키·인증 (절대 커밋 금지)
 .env
+*.pem
+*.key
 
-# 파이썬 자동 생성 캐시
+# 데이터 (AI허브 데이터는 재배포 금지 — 스크립트만 공유)
+data/*
+!data/.gitkeep
+ml/dataset/
+*.csv
+*.jsonl
+*.zip
+*.tar
+*.part*
+
+# 실행 결과 원본 (md 요약만 커밋)
+**/results/*.jsonl
+*.mp3
+
+# 파이썬
 __pycache__/
 *.py[cod]
 *$py.class
 
-# 에디터 및 OS 설정 파일
+# Node / Expo
+node_modules/
+.expo/
+dist/
+*.apk
+*.ipa
+
+# 에디터 및 OS
 .vscode/
 .idea/
 .DS_Store

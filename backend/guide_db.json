@@ -1,0 +1,340 @@
+{
+  "_meta": {
+    "version": "0.4",
+    "updated": "2026-11-21",
+    "status": "채널 8개 전부 공식 출처 확인 완료 (2026-11-21). 데모 지역 = 창원시",
+    "rule": "channels 의 url·phone 은 LLM 이 생성하지 않고 이 파일 값만 사용한다",
+    "note_intent": "channels = 신고용(현장 조치), channels_inquiry = 문의용(절차·방법 질문)"
+  },
+  "channels": {
+    "safetyreport": {
+      "name": "안전신문고",
+      "operator": "행정안전부",
+      "url": "https://www.safetyreport.go.kr",
+      "app": "안전신문고 (Play 스토어 / App Store)",
+      "phone": "",
+      "how": "앱 또는 홈페이지에서 신고 유형 선택 → 사진·동영상 첨부 → 지도에서 위치 지정 → 제출",
+      "note": "불법주정차·안전신고·자동차교통위반·생활불편신고 접수. 처리 결과는 보통 7일 이내",
+      "source": "https://www.korea.kr/multi/visualNewsView.do?newsId=148923015",
+      "checked_at": "2026-11-21",
+      "verified": true
+    },
+    "epeople": {
+      "name": "국민신문고",
+      "operator": "국민권익위원회",
+      "url": "https://www.epeople.go.kr",
+      "app": "",
+      "phone": "110",
+      "how": "홈페이지(www.epeople.go.kr) 로그인 후 민원 신청 작성 → 처리기관 자동 배정. 전화 문의는 국민콜 110",
+      "note": "모든 행정기관 민원의 기본 접수 창구. 어느 채널인지 애매할 때 기본값. 국민권익위원회 운영",
+      "source": "https://www.epeople.go.kr",
+      "checked_at": "2026-11-21",
+      "verified": true
+    },
+    "call110": {
+      "name": "국민콜 110 (정부민원안내콜센터)",
+      "operator": "국민권익위원회",
+      "url": "https://www.110.go.kr",
+      "app": "",
+      "phone": "110",
+      "how": "국번 없이 110 → 상담사가 접수처 안내 (365일 24시간)",
+      "note": "어디에 신고할지 모를 때, 전화 상담 원할 때",
+      "source": "https://m.korea.kr/news/policyNewsView.do?newsId=148922751",
+      "checked_at": "2026-11-21",
+      "verified": true
+    },
+    "gov24": {
+      "name": "정부24",
+      "operator": "행정안전부",
+      "url": "https://www.gov.kr",
+      "app": "정부24",
+      "phone": "1588-2188",
+      "how": "홈페이지·앱에서 증명서 발급, 민원 신청",
+      "note": "주민등록등초본·인감 등 증명서 발급, 행정 신청",
+      "source": "https://www.gov.kr (하단 footer: 정부24 콜센터 1588-2188, 정부민원안내콜센터 110)",
+      "checked_at": "2026-11-21",
+      "verified": true
+    },
+    "env128": {
+      "name": "환경신문고",
+      "operator": "환경부",
+      "url": "",
+      "app": "",
+      "phone": "128",
+      "how": "국번 없이 128 (휴대전화는 지역번호+128). 목격 시간·장소·행위자·행위 내용을 함께",
+      "note": "환경오염행위(매연·먼지·폐수·불법투기·악취 등) 신고 전용 전화. 지자체 환경과로 연결",
+      "source": "https://www.korea.kr/news/policyNewsView.do?newsId=148910445 (환경부 보도자료)",
+      "checked_at": "2026-11-21",
+      "verified": true
+    },
+    "wetax": {
+      "name": "위택스",
+      "operator": "행정안전부",
+      "url": "https://www.wetax.go.kr",
+      "app": "위택스",
+      "phone": "110",
+      "how": "홈페이지(www.wetax.go.kr)·스마트 위택스 앱에서 지방세 조회·신고·납부. 이용 문의는 국민콜 110",
+      "note": "행정안전부 운영 전국 지방세 납부 서비스. 별도 콜센터 없이 110으로 안내됨",
+      "source": "https://apps.apple.com/us/app/-/id888585740 (스마트 위택스 앱 고객센터 110), 서울시 안내 https://news.seoul.go.kr/gov/archives/562028",
+      "checked_at": "2026-11-21",
+      "verified": true
+    },
+    "bokjiro": {
+      "name": "복지로",
+      "operator": "보건복지부",
+      "url": "https://www.bokjiro.go.kr",
+      "app": "복지로",
+      "phone": "129",
+      "how": "복지로(www.bokjiro.go.kr)에서 서비스 검색·온라인 신청. 상담은 보건복지상담센터 129 (24시간)",
+      "note": "복지 제도 상담은 129, 복지로 사이트 이용 오류는 1566-0313",
+      "source": "https://mohw.go.kr/menu.es?mid=a10209000000 (보건복지부: 보건복지상담센터 129), 복지로 누리집 이용문의 1566-0313",
+      "checked_at": "2026-11-21",
+      "verified": true
+    },
+    "city_hall": {
+      "name": "창원시 민원콜센터",
+      "operator": "지자체",
+      "url": "https://www.changwon.go.kr",
+      "app": "",
+      "phone": "055-225-2114",
+      "how": "창원시 민원콜센터 055-225-2114 또는 1899-1111 → 담당 부서 연결",
+      "note": "데모 지역 창원시 기준. 구청 대표번호는 국번+2114 (의창 212, 성산 272, 마산합포 220, 마산회원 230, 진해 548). department_map.json 의 담당 부서명을 함께 안내",
+      "source": "https://www.changwon.go.kr (하단 footer 민원콜센터)",
+      "checked_at": "2026-11-21",
+      "verified": true
+    }
+  },
+  "subtypes": {
+    "자동차": {
+      "category": "교통·자동차",
+      "channels": [
+        "safetyreport",
+        "city_hall",
+        "epeople"
+      ],
+      "tip": "불법주정차는 사진 2장(1분 이상 간격)과 위치가 있어야 접수된다",
+      "channels_inquiry": [
+        "city_hall",
+        "gov24",
+        "call110"
+      ]
+    },
+    "교통": {
+      "category": "교통·자동차",
+      "channels": [
+        "safetyreport",
+        "city_hall",
+        "epeople"
+      ],
+      "tip": "신호등·정류장·노선은 위치나 노선 번호를 적는다",
+      "channels_inquiry": [
+        "city_hall",
+        "call110"
+      ]
+    },
+    "안전건설": {
+      "category": "도로·안전시설",
+      "channels": [
+        "safetyreport",
+        "city_hall",
+        "epeople"
+      ],
+      "tip": "도로 파손·시설물은 사진과 정확한 위치(도로명·건물명)가 필요",
+      "channels_inquiry": [
+        "city_hall",
+        "call110"
+      ]
+    },
+    "건축허가": {
+      "category": "건축·토지",
+      "channels": [
+        "city_hall",
+        "epeople"
+      ],
+      "tip": "대상 건축물 주소와 하려는 행위(신축·증축·용도변경)를 명시",
+      "channels_inquiry": [
+        "city_hall",
+        "call110"
+      ]
+    },
+    "토지": {
+      "category": "건축·토지",
+      "channels": [
+        "city_hall",
+        "gov24",
+        "epeople"
+      ],
+      "tip": "지번 또는 필지 정보가 있어야 확인 가능",
+      "channels_inquiry": [
+        "city_hall",
+        "gov24",
+        "call110"
+      ]
+    },
+    "환경미화": {
+      "category": "환경·위생",
+      "channels": [
+        "safetyreport",
+        "env128",
+        "city_hall"
+      ],
+      "tip": "투기·적치 위치와 사진. 오염 행위는 목격 시간도 함께",
+      "channels_inquiry": [
+        "city_hall",
+        "call110"
+      ]
+    },
+    "위생": {
+      "category": "환경·위생",
+      "channels": [
+        "city_hall",
+        "epeople"
+      ],
+      "tip": "업소명과 위치, 문제 상황(날짜 포함)",
+      "channels_inquiry": [
+        "city_hall",
+        "call110"
+      ]
+    },
+    "상하수도": {
+      "category": "환경·위생",
+      "channels": [
+        "city_hall",
+        "epeople"
+      ],
+      "tip": "누수·단수는 위치와 발생 시점, 지속 여부",
+      "channels_inquiry": [
+        "city_hall",
+        "call110"
+      ]
+    },
+    "산림": {
+      "category": "산림·농업",
+      "channels": [
+        "city_hall",
+        "safetyreport",
+        "epeople"
+      ],
+      "tip": "수목·공원시설 위치와 상태(기울어짐·고사·파손·쓰레기 등)",
+      "channels_inquiry": [
+        "city_hall",
+        "call110"
+      ]
+    },
+    "농업_축산": {
+      "category": "산림·농업",
+      "channels": [
+        "city_hall",
+        "epeople"
+      ],
+      "tip": "피해 신고는 위치·규모(면적·두수)",
+      "channels_inquiry": [
+        "city_hall",
+        "call110"
+      ]
+    },
+    "복지": {
+      "category": "복지·보건",
+      "channels": [
+        "bokjiro",
+        "city_hall",
+        "epeople"
+      ],
+      "tip": "어떤 제도·서비스인지와 알고 싶은 것(대상 여부·절차)",
+      "channels_inquiry": [
+        "bokjiro",
+        "city_hall",
+        "call110"
+      ]
+    },
+    "보건소": {
+      "category": "복지·보건",
+      "channels": [
+        "city_hall",
+        "epeople"
+      ],
+      "tip": "이용하려는 서비스와 지역(관할 보건소)",
+      "channels_inquiry": [
+        "city_hall",
+        "bokjiro",
+        "call110"
+      ]
+    },
+    "세무": {
+      "category": "세무·행정",
+      "channels": [
+        "wetax",
+        "city_hall",
+        "epeople"
+      ],
+      "tip": "세목과 과세 연도·고지서 내용",
+      "channels_inquiry": [
+        "wetax",
+        "city_hall",
+        "call110"
+      ]
+    },
+    "행정": {
+      "category": "세무·행정",
+      "channels": [
+        "epeople",
+        "call110",
+        "gov24"
+      ],
+      "tip": "처리 지연·불만·건의는 국민신문고, 증명서 발급은 정부24",
+      "channels_inquiry": [
+        "gov24",
+        "call110",
+        "epeople"
+      ]
+    },
+    "공통": {
+      "category": "세무·행정",
+      "channels": [
+        "epeople",
+        "call110"
+      ],
+      "tip": "대상 업무·시설과 바라는 조치를 적으면 담당 기관이 배정됨",
+      "channels_inquiry": [
+        "call110",
+        "epeople"
+      ]
+    },
+    "정보통신": {
+      "category": "세무·행정",
+      "channels": [
+        "epeople",
+        "city_hall"
+      ],
+      "tip": "어느 사이트·앱의 어떤 기능에서 오류가 나는지",
+      "channels_inquiry": [
+        "call110",
+        "city_hall"
+      ]
+    },
+    "경제": {
+      "category": "경제·문화",
+      "channels": [
+        "city_hall",
+        "epeople"
+      ],
+      "tip": "관련 사업·제도명과 지역·업종",
+      "channels_inquiry": [
+        "city_hall",
+        "call110"
+      ]
+    },
+    "문화_체육_관광": {
+      "category": "경제·문화",
+      "channels": [
+        "city_hall",
+        "epeople"
+      ],
+      "tip": "시설·행사명과 이용 일시",
+      "channels_inquiry": [
+        "city_hall",
+        "call110"
+      ]
+    }
+  }
+}

@@ -1,5 +1,11 @@
+# 서버 (backend/)
+fastapi
+uvicorn
+python-multipart
+requests
+python-dotenv
+# 기존 (src/ 실험용)
 langchain
 langchain-community
 openai
-python-dotenv
 streamlit
