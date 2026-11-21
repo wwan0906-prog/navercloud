@@ -9,13 +9,17 @@
 
     extract(text, category) -> {
         "fields": {key: 원문에서 찾은 구절 또는 None},
-        "not_applicable": [key, ...],        # 선택. 이 민원에는 해당 없는 항목
+        "not_applicable": [key, ...],        # 선택. when 조건에 해당하지 않는 항목
         "guide_message": str,                # 선택. 주면 백엔드가 만든 안내문 대신 사용
     }
         HCX Prompt: 정보 추출.
-        category["fields"][i] = {"key", "label", "hint", "example", ...} 가 추출할 항목입니다.
+        category["fields"][i] = {"key", "label", "check", "when", "hint", "example", ...} 가 추출할 항목입니다.
+        (기준: data/category_requirements.json. check = 충족 판정 기준, when = 조건부 필수 조건)
         값은 원문의 해당 구절을 그대로 넣으세요 (화면에 '원문: "..."' 으로 표시됨).
-        원문에 없으면 None. 충족·불충분·누락 판정은 백엔드 rules.py 가 합니다.
+        원문에 없으면 None. 추정으로 값을 만들지 마세요 (기준 파일 rules.evidence).
+        when 이 있는 항목은 이 민원이 그 조건에 해당하지 않으면 not_applicable 에 key 를 넣으세요.
+        when 이 없는 항목은 항상 필수라서 not_applicable 에 넣어도 무시됩니다.
+        충족·불충분·누락 판정은 백엔드 rules.py 가 합니다.
 
 .env 의 AI_MODE:
     mock (기본) 가짜 응답. 프론트엔드·백엔드 개발용
