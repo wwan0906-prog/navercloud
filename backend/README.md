@@ -124,7 +124,7 @@ AI_MODE=real
 
 `guide_seed.json`이 원본입니다. 서버를 시작할 때마다 SQLite에 다시 적재하므로, **JSON만 고치고 서버를 재시작**하면 됩니다. 분석 기록은 재적재해도 유지됩니다.
 
-접수 채널(`official_channel`)은 분야마다 하나씩, 신고용 1순위 채널 기준으로 들어 있습니다 (데모 지역 창원시, 2026-11-21 확인). `source`·`checked_at`은 근거 기록용이라 DB와 API 응답에는 들어가지 않고 기관명·주소·전화만 나갑니다. 지역을 바꾸려면 창원시 민원콜센터로 된 9개 분야만 고치면 됩니다.
+접수 채널(`official_channel`)은 분야마다 하나씩, 신고용 1순위 채널 기준으로 들어 있습니다 (2026-11-21 확인). `source`·`checked_at`은 근거 기록용이라 DB와 API 응답에는 들어가지 않고 기관명·주소·전화만 나갑니다. 지역별 세부 기관이 없는 분야는 전국 통합 창구인 국민신문고(110)로 안내합니다.
 
 18개 분야의 필수 정보 항목(`key`·`label`·`check`·`when`)은 팀 기준 파일 `data/category_requirements.json`(민원 18개 카테고리 공식요건 검수, schema 1.0.0)을 그대로 옮긴 것입니다. 기준 파일이 바뀌면 seed도 같이 고쳐야 하고, 둘이 다르면 `test_seed_matches_requirements` 테스트가 실패합니다. `min_length`·`pattern`·`hint`·`example`은 기준 파일에 없어서 백엔드가 덧붙인 값입니다.
 
