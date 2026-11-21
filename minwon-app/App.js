@@ -205,7 +205,7 @@ export default function App() {
             disabled={inputBusy || !text.trim()}
             style={{ marginTop: 14 }}
           />
-          {analyzing && <Text style={styles.loadingText}>분류 → 답변 초안 작성 → 규정 검사 중입니다...</Text>}
+          {analyzing && <Text style={styles.loadingText}>분류 → 필수 정보 점검 → 답변 초안 작성 중입니다... (5~15초)</Text>}
 
           {/* 결과 */}
           {analysis && (

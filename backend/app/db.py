@@ -57,6 +57,17 @@ CREATE TABLE IF NOT EXISTS complaints (
     is_complete   INTEGER,
     result_json   TEXT NOT NULL
 );
+-- 접수: 분석 기록(complaints) 하나에 접수 하나
+CREATE TABLE IF NOT EXISTS receipts (
+    receipt_no    TEXT PRIMARY KEY,     -- MW-YYYYMMDD-0001
+    complaint_id  INTEGER NOT NULL UNIQUE REFERENCES complaints(id),
+    created_at    TEXT NOT NULL,
+    department    TEXT,                 -- 배정 분야 (8개 서비스 분야)
+    category      TEXT,                 -- 18개 유형
+    urgency       TEXT,                 -- 긴급 | 일반
+    status        TEXT NOT NULL,        -- received | pending_review
+    message       TEXT
+);
 """
 GUIDE_TABLES = ('channels', 'fields', 'categories')
 
@@ -191,3 +202,30 @@ def list_complaints(limit: int = 20) -> list[dict]:
             ' substr(complaint_text, 1, 60) AS preview FROM complaints ORDER BY id DESC LIMIT ?',
             (limit,))
         return [{**dict(r), 'is_complete': bool(r['is_complete'])} for r in rows]
+
+
+# ---------------------------------------------------------------- 접수
+def get_receipt(receipt_no: str) -> dict | None:
+    with connect() as conn:
+        row = conn.execute('SELECT * FROM receipts WHERE receipt_no = ?', (receipt_no,)).fetchone()
+    return dict(row) if row else None
+
+
+def create_receipt(complaint_id: int, department: str | None, category: str | None,
+                   urgency: str | None, status: str, message: str) -> dict:
+    """접수번호를 발급합니다. 이미 접수된 분석 기록이면 기존 접수를 그대로 돌려줍니다(두 번 눌러도 하나만)."""
+    now = datetime.now(KST)
+    prefix = f"MW-{now:%Y%m%d}-"
+    with connect() as conn:
+        row = conn.execute('SELECT * FROM receipts WHERE complaint_id = ?', (complaint_id,)).fetchone()
+        if row:
+            return dict(row)
+        last = conn.execute('SELECT receipt_no FROM receipts WHERE receipt_no LIKE ? ORDER BY receipt_no DESC LIMIT 1',
+                            (prefix + '%',)).fetchone()
+        seq = int(last['receipt_no'][-4:]) + 1 if last else 1
+        receipt_no = f'{prefix}{seq:04d}'
+        conn.execute(
+            'INSERT INTO receipts (receipt_no, complaint_id, created_at, department, category, urgency, status, message)'
+            ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            (receipt_no, complaint_id, now.isoformat(timespec='seconds'), department, category, urgency, status, message))
+    return get_receipt(receipt_no)

@@ -2,7 +2,7 @@
 // 서버 주소는 minwon-app/.env.local 의 EXPO_PUBLIC_API_BASE_URL 에서 읽습니다 (.env.example 참고).
 // 주소가 없거나 EXPO_PUBLIC_USE_MOCK=true 이면 서버 없이 목업 데이터(mock.js)를 씁니다.
 //
-// 연결 상태: ① 음성·사진 → 글자는 서버 연결됨 / ②~⑤ 분석·접수는 아직 목업
+// 연결 상태: ① 음성·사진 → 글자, ②~④ 분석, ⑤ 접수 모두 서버 연결됨 (규정 검사는 범위 제외)
 // 각 함수 안만 바꾸면 화면 코드는 그대로 쓸 수 있습니다.
 import { Platform } from 'react-native';
 import { MOCK_OCR_TEXT, MOCK_STT_TEXT, mockAnalyze, mockSubmit } from './mock';
@@ -70,17 +70,40 @@ export async function recognizeImage(asset) {
   return text;
 }
 
-// ①~④ 번역 → 분류 → 답변 초안 → 규정 검사 (아직 목업. 연동 범위 결정 대기)
-// 반환 형식은 mock.js의 예시 객체를 참고하세요.
-// 서버 연동 시 분류 필드 매핑: service_category → classification.분야, category_name → classification.세부유형
-// (화면에는 "교통·자동차 > 자동차"처럼 표시됨)
+// ①~④ 번역 → 분류 → 필수 정보 점검 → 답변 초안·긴급도·요약 (서버: HCX 튜닝 모델 + 프롬프트)
+// 서버가 화면 형식 그대로 돌려줌: classification{분야, 세부유형, 유형, 긴급도, 요약}, translated_text,
+// answer_draft, answer_translated, field_checks, guide_message, official_channel, id(접수에 사용)
+// 규정 검사(consistency)는 이번 범위에서 제외되어 서버가 null 로 보냄 → 화면에서 숨겨짐
 export async function analyzeComplaint(text, lang) {
-  await delay(1200);
-  return mockAnalyze(text, lang);
+  if (!USE_SERVER) {
+    await delay(1200);
+    return mockAnalyze(text, lang);
+  }
+  const form = new FormData();
+  form.append('complaint_text', text);
+  form.append('lang', lang);
+  return postForm('/api/analyze', form);
 }
 
-// ⑤ 접수 처리 (아직 목업. 연동 범위 결정 대기 — 접수번호 발급, 분야 배정, 긴급 민원은 담당자 확인 대기)
+// ⑤ 접수: 접수번호 발급 + 분야 배정. 긴급 민원은 담당자 확인 대기 (서버: /api/submit)
 export async function submitComplaint(text, lang, analysis) {
-  await delay(800);
-  return mockSubmit(analysis);
+  if (!USE_SERVER || !analysis?.id) {
+    await delay(800);
+    return mockSubmit(analysis);
+  }
+  let res;
+  try {
+    res = await fetch(`${API_BASE_URL}/api/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ complaint_id: analysis.id }),
+    });
+  } catch {
+    throw new Error('서버와 통신할 수 없습니다. 인터넷 연결이나 서버 주소를 확인해 주세요.');
+  }
+  const body = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(typeof body?.detail === 'string' ? body.detail : `서버 오류 (HTTP ${res.status})`);
+  }
+  return body;   // { receipt_no, department, status, message, ... }
 }

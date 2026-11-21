@@ -19,6 +19,47 @@
 
 분석은 HCX를 최대 3번 부르므로 응답까지 4~10초 걸립니다. 앱에서 로딩 표시를 유지해 주세요.
 
+## 🆕 0.4 변경: 앱 분석·접수 화면 연결 (기획서 6단계)
+
+앱 `src/api.js`의 네 함수가 모두 서버에 연결됐습니다.
+
+| 앱 함수 | 서버 API |
+|---|---|
+| `transcribeAudio` | `POST /api/stt` |
+| `recognizeImage` | `POST /api/ocr` |
+| `analyzeComplaint` | `POST /api/analyze` (`complaint_text`, **`lang`**) |
+| `submitComplaint` | **`POST /api/submit`** `{"complaint_id": 분석 응답의 id}` |
+
+### `/api/analyze` 추가 요청 필드
+- `lang`: `ko`(기본) · `en` · `ja` · `zh-CN`. 외국어면 한국어로 번역해 분석하고, 답변 초안을 그 언어로 되돌려 번역합니다.
+  - 번역 엔진: `.env`에 `PAPAGO_CLIENT_ID/SECRET`이 있으면 Papago, 없으면 HCX
+- 공백을 빼고 **8자 미만**이면 400을 돌려 되묻습니다 (예: "도와주세요").
+
+### `/api/analyze` 추가 응답 필드 (앱 화면 형식 그대로)
+```json
+"classification": { "분야": "환경·위생", "세부유형": "환경미화", "유형": "신고", "긴급도": "일반", "요약": "아파트 앞 음식물 쓰레기통 3일째 수거 안 됨" },
+"translated_text": null,            // 외국어 입력이면 한국어 번역
+"answer_draft": "불편하시겠습니다. … 쓰레기통 위치를 알려 주시겠어요?",
+"answer_translated": null,          // 외국어 입력이면 답변 역번역
+"consistency": null                 // 규정 검사: 이번 범위에서 제외
+```
+- `유형`: 신고 · 문의 · 건의 · 칭찬 / `긴급도`: 긴급 · 일반
+- 가스 냄새·화재·연기·붕괴·감전 같은 위험 표현이 있으면 AI 판단과 관계없이 **긴급**입니다.
+- 답변 초안은 공감 한 문장 + 처리 안내 + 빠진 정보 요청 정도의 짧은 첫 답변입니다. 긴급이면 119·112 안내가 들어갑니다.
+- 응답 시간: 한국어 5~8초, 외국어 7~10초 (HCX 4~6회)
+
+### `POST /api/submit`: 접수
+```json
+{ "complaint_id": 11 }
+→ { "receipt_no": "MW-20261121-0001", "department": "환경·위생", "category": "위생", "urgency": "긴급",
+    "status": "pending_review", "message": "긴급 민원으로 분류되어 담당자가 확인한 뒤 처리합니다.", ... }
+```
+- 접수번호는 날짜별로 0001부터 매깁니다. `department`는 8개 서비스 분야입니다.
+- 긴급이면 `pending_review`(담당자 확인 대기), 아니면 `received`
+- 같은 분석 결과로 두 번 접수하면 처음 접수를 그대로 돌려줍니다.
+- `GET /api/receipts/{receipt_no}`: 접수번호로 조회
+
+
 ## 앱 설정
 
 ```bash
