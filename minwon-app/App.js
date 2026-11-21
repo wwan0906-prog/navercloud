@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { LANGUAGES, formatCategory, getLanguage, isUrgent } from './src/config';
 import { SAMPLES } from './src/mock';
-import { analyzeComplaint, submitComplaint } from './src/api';
+import { USE_SERVER, analyzeComplaint, submitComplaint } from './src/api';
 import { useSpeaker } from './src/hooks/useSpeaker';
 import { Button, Card, StepTitle, colors } from './src/components/ui';
 import VoiceInput from './src/components/VoiceInput';
@@ -122,13 +122,15 @@ export default function App() {
         >
           <Text style={styles.header}>AI 민원 창구</Text>
           <Text style={styles.subHeader}>
-            글·음성·사진·외국어로 민원을 넣으면 AI가 분류하고, 규정에 맞는 답변 초안을 만들어 접수까지 도와드립니다.
+            글·음성·사진·외국어로 민원을 넣으면 AI가 분류하고, 빠진 정보와 답변 초안을 안내해 접수까지 도와드립니다.
           </Text>
 
-          {/* 백엔드 연동 후 삭제 */}
-          <View style={styles.mockBanner}>
-            <Text style={styles.mockText}>목업 모드 · 서버 연결 전 예시 데이터로 동작합니다</Text>
-          </View>
+          {/* 서버 주소가 없거나 EXPO_PUBLIC_USE_MOCK=true 일 때만 표시 */}
+          {!USE_SERVER && (
+            <View style={styles.mockBanner}>
+              <Text style={styles.mockText}>목업 모드 · 서버 연결 없이 예시 데이터로 동작합니다</Text>
+            </View>
+          )}
 
           {/* 진행 단계 */}
           <View style={styles.stages}>
