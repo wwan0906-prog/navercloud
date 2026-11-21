@@ -127,6 +127,9 @@ def test_too_many_photos(client):
 
 def test_ai_not_ready(client, monkeypatch):
     monkeypatch.setenv('AI_MODE', 'real')
+    # .env 에 HCX 키가 있어도 '키 없음' 상황을 만들어서 실제 HCX 를 부르지 않게 함
+    monkeypatch.delenv('CLOVASTUDIO_API_KEY', raising=False)
+    monkeypatch.delenv('NCP_CLOVASTUDIO_API_KEY', raising=False)
     r = analyze(client, '민원')
     assert r.status_code == 503 and '연결 전' in r.json()['detail']
 
@@ -269,3 +272,39 @@ def test_stt(client, monkeypatch):
 def test_stt_unsupported_language(client):
     r = client.post('/api/stt', files={'audio': ('v.m4a', b'x', 'audio/m4a')}, data={'lang': 'vi'})
     assert r.status_code == 400 and 'vi' in r.json()['detail']
+
+
+# ---------------------------------------------------------------- AI 판정과 합치기
+def test_ai_insufficient_is_respected(client, monkeypatch):
+    """AI 가 불충분으로 본 항목은 백엔드 규칙상 통과해도 불충분"""
+    monkeypatch.setattr(ai_client, 'extract', lambda t, c: {
+        'fields': {'facility_or_work': '가로등', 'location': '세종대로 209', 'risk_status': '어제부터 안 켜짐',
+                   'request': '수리'}, 'insufficient': ['facility_or_work']})
+    body = analyze(client, '세종대로 209 가로등이 어제부터 안 켜짐. 수리 부탁').json()
+    assert status_of(body)['facility_or_work'] == 'insufficient'
+    assert status_of(body)['location'] == 'sufficient'
+
+
+def test_made_up_evidence_is_not_sufficient(client, monkeypatch):
+    """원문에 없는 구절(지어낸 요청)은 충족으로 인정하지 않고, 원문으로 표시하지도 않음"""
+    monkeypatch.setattr(ai_client, 'classify', lambda t: {'category': '교통', 'confidence': None})
+    monkeypatch.setattr(ai_client, 'extract', lambda t, c: {'fields': {
+        'traffic_target': '불법 주정차 차량', 'location_or_route': '세종대로 209 앞',
+        'issue_details': '세워져 있어 통행이 어렵습니다', 'request': '불법 주정차 차량 이동 조치 요청'}})
+    body = analyze(client, '세종대로 209 앞에 불법 주정차 차량이 계속 세워져 있어 통행이 어렵습니다.').json()
+    req = next(c for c in body['field_checks'] if c['key'] == 'request')
+    assert req['status'] == 'insufficient' and req['evidence'] is None and req['suggestion']
+    assert status_of(body)['traffic_target'] == 'sufficient'
+    assert body['is_complete'] is False
+
+
+@pytest.mark.parametrize('value, text, grounded', [
+    ('불법 주정차 차량 이동 조치 요청', '상가 앞에 불법 주정차 차량이 계속 세워져 있어 통행이 어렵습니다.', False),
+    ('재발급 방법 문의', '재산세 고지서를 잃어버렸는데 어떻게 다시 받을 수 있나요?', False),
+    ('수거 지연', '음식물 쓰레기통이 3일째 수거가 안 돼서 냄새가 심해요.', True),
+    ('고지서 분실', '재산세 고지서를 잃어버렸는데 어떻게 다시 받을 수 있나요?', True),
+    ('상가 앞 불법 주정차 차량', '상가 앞에 불법 주정차 차량이 계속 세워져 있어요', True),
+    ('아무거나', None, True),
+])
+def test_is_grounded(value, text, grounded):
+    assert rules.is_grounded(value, text) is grounded

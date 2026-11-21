@@ -110,7 +110,8 @@ def analyze(complaint_text: str = Form(''), files: Optional[List[UploadFile]] = 
 
     # 4. 판정 · 안내문 · 접수 채널
     checks = rules.check_fields(category['fields'] if category else [],
-                                extracted.get('fields'), extracted.get('not_applicable'))
+                                extracted.get('fields'), extracted.get('not_applicable'),
+                                extracted.get('insufficient'), source_text=text)
     complete = bool(checks) and rules.is_complete(checks)
     message = extracted.get('guide_message') or guide.compose_message(category, cls['category'], checks, complete)
     channel = (category or {}).get('official_channel') or db.default_channel()
