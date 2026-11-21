@@ -20,7 +20,7 @@
 
 ```bash
 cd minwon-app
-cp .env.example .env.local      # EXPO_PUBLIC_API_BASE_URL=http://<서버IP>:8000 으로 수정
+cp .env.example .env.local      # 배포 서버: EXPO_PUBLIC_API_BASE_URL=http://211.233.204.198:8000
 npx expo start -c               # 환경변수를 바꾼 뒤에는 -c 로 캐시 비우고 실행
 ```
 

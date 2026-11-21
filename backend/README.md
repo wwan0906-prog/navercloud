@@ -35,7 +35,35 @@ backend/
 └── requirements.txt
 ```
 
-## 실행
+## 배포 서버
+
+| 항목 | 값 |
+|---|---|
+| 주소 | `http://211.233.204.198:8000` (API 테스트 화면: `/docs`) |
+| 서버 | NCP `ai-001`, 서버 안의 경로는 `/root/minwon-backend` |
+| 실행 방식 | systemd 서비스 `minwon-backend`. 재부팅되거나 프로세스가 죽어도 자동으로 다시 켜짐 |
+| ACG | 인바운드 TCP 8000은 전체(`0.0.0.0/0`), SSH(22)는 백엔드 담당 IP만 |
+
+repo가 비공개라 서버에서 `git pull`은 안 됩니다. 백엔드 담당 PC에서 폴더를 복사해서 배포합니다 (SSH 접속 권한 필요).
+
+```bash
+# 다시 배포 (repo 루트에서)
+rsync -az --exclude .venv --exclude __pycache__ --exclude data/minwon.db --exclude data/audio \
+  backend/ root@211.233.204.198:/root/minwon-backend/
+ssh root@211.233.204.198 'systemctl restart minwon-backend'
+
+# 패키지가 바뀌었을 때
+ssh root@211.233.204.198 'cd /root/minwon-backend && .venv/bin/pip install -q -r requirements.txt && systemctl restart minwon-backend'
+
+# 상태 · 로그
+ssh root@211.233.204.198 'systemctl status minwon-backend --no-pager'
+ssh root@211.233.204.198 'journalctl -u minwon-backend -n 50 --no-pager'
+```
+
+- 서버의 `.env`(CLOVA 키, `AI_MODE`)는 위 rsync로 로컬 `backend/.env`가 함께 복사됩니다. `AI_MODE`를 바꾼 뒤에는 다시 배포하세요.
+- 분석 기록 DB(`data/minwon.db`)와 음성 캐시(`data/audio/`)는 서버에만 있고, 배포할 때 덮어쓰지 않습니다.
+
+## 로컬 실행
 
 ```bash
 cd backend
@@ -45,8 +73,7 @@ cp .env.example .env          # 키 채우기
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-- 브라우저에서 `http://<서버IP>:8000/docs`를 열면 API를 직접 눌러볼 수 있습니다.
-- NCP 서버에 올릴 때는 **ACG에서 8000번 포트를 열어야** 합니다.
+- 브라우저에서 `http://localhost:8000/docs`를 열면 API를 직접 눌러볼 수 있습니다.
 - 테스트: `python -m pytest -q`. CLOVA는 가짜 함수로 대체하므로 API 사용량을 쓰지 않습니다.
 
 ## 분석 흐름 (`POST /api/analyze`)
